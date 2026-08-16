@@ -125,7 +125,7 @@ function HeaderCell({
       scope="col"
       style={{ width, height: ACCOUNT_HEADER_HEIGHT, ...(sticky ? { position: 'sticky', left: 0, zIndex: 20 } : null) }}
       className={cn(
-        'bg-app-bg border-border-tertiary border-r border-b px-3 text-left',
+        'bg-card border-border-tertiary border-t border-r border-b px-3 text-left',
         'text-[13px] font-medium whitespace-nowrap',
         className,
       )}
@@ -191,8 +191,12 @@ export function Accounts({ onNavigate }: { onNavigate?: (page: string) => void }
     <div className="bg-app-bg flex h-full w-full overflow-hidden">
       <Sidebar active="Accounts" onNavigate={onNavigate} />
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        {/* ── top bar — 70 high, on the grey ground ───────────────────────── */}
+      {/* Same shell as People: a rounded white panel floating on the app
+          background. The capture showed this page on the bare grey ground, but
+          the two pages are meant to read as one product. */}
+      <div className="flex min-w-0 flex-1 flex-col py-3 pr-3">
+        <div className="bg-card border-card-border shadow-main-panel flex min-h-0 flex-1 flex-col overflow-hidden rounded-[14px] border">
+        {/* ── top bar — 70 high ──────────────────────────────────────────── */}
         <header className="flex h-[70px] shrink-0 items-center justify-between px-4">
           <div className="flex min-w-0 items-center gap-2.5">
             <span className="bg-accent-pink/10 flex size-[30px] shrink-0 items-center justify-center rounded-lg">
@@ -229,8 +233,10 @@ export function Accounts({ onNavigate }: { onNavigate?: (page: string) => void }
           </div>
         </header>
 
-        {/* ── toolbar — 12 below the top bar ──────────────────────────────── */}
-        <div className="flex shrink-0 items-center gap-2 px-4 pt-3">
+        {/* Same rhythm as People — one stack, gap-3, pb-3. Accounts puts the
+            toolbar above the tabs; People is the other way round. */}
+        <div className="flex shrink-0 flex-col gap-3 pb-3">
+        <div className="flex shrink-0 items-center gap-2 px-4">
           <label className={cn(CONTROL, BORDERED, 'w-[190px] gap-2 px-2.5')}>
             <SearchIcon className="text-content-tertiary shrink-0" />
             <input
@@ -270,8 +276,8 @@ export function Accounts({ onNavigate }: { onNavigate?: (page: string) => void }
           </div>
         </div>
 
-        {/* ── view tabs — 16 below the toolbar, 7 above the grid ──────────── */}
-        <div className="flex shrink-0 items-center gap-1.5 overflow-hidden px-4 pt-4 pb-[7px]">
+        {/* ── view tabs ──────────────────────────────────────────────────── */}
+        <div className="flex shrink-0 items-center gap-1.5 overflow-hidden px-4">
           {VIEWS.map((v, i) => (
             <ViewTab key={v.label} label={v.label} shared={v.shared} active={i === 0} />
           ))}
@@ -283,8 +289,9 @@ export function Accounts({ onNavigate }: { onNavigate?: (page: string) => void }
             <PlusIcon />
           </button>
         </div>
+        </div>
 
-        {/* ── grid — white from here down, table stops at its own width ───── */}
+        {/* ── grid ───────────────────────────────────────────────────────── */}
         <div className="bg-card min-h-0 flex-1 overflow-auto">
           <table
             className="table-fixed border-separate border-spacing-0"
@@ -416,6 +423,7 @@ export function Accounts({ onNavigate }: { onNavigate?: (page: string) => void }
               )}
             </tbody>
           </table>
+        </div>
         </div>
       </div>
 
