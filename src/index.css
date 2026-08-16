@@ -1,0 +1,158 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Rox theme tokens — resolved from the running app, not sampled from a
+   screenshot. Names match Rox's own vocabulary so utility classes lifted from
+   the DOM (bg-card, text-content-secondary, border-border-tertiary, …) resolve
+   as written.
+   --------------------------------------------------------------------------- */
+@theme {
+  /* Type ------------------------------------------------------------------ */
+  --font-sans: "Geist Variable", "Geist", "GeistSans", ui-sans-serif, system-ui,
+    sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
+    monospace;
+
+  /* Warm stone neutral ramp ----------------------------------------------- */
+  --color-os-gray-50: rgb(247 246 245);
+  --color-os-gray-75: rgb(243 242 241);
+  --color-os-gray-100: rgb(237 236 234);
+  --color-os-gray-150: rgb(227 225 223);
+  --color-os-gray-200: rgb(214 211 208);
+  --color-os-gray-300: rgb(180 175 168);
+  --color-os-gray-400: rgb(141 133 124);
+  --color-os-gray-500: rgb(113 106 99);
+  --color-os-gray-600: rgb(92 86 81);
+  --color-os-gray-700: rgb(70 66 62);
+  --color-os-gray-800: rgb(46 44 41);
+  --color-os-gray-900: rgb(35 33 31);
+  --color-os-gray-950: rgb(21 20 19);
+
+  /* Content --------------------------------------------------------------- */
+  --color-content-primary: rgb(35 33 31);
+  --color-content-secondary: rgb(92 86 81);
+  --color-content-tertiary: rgb(113 106 99);
+  --color-content-quaternary: rgb(180 175 168);
+  --color-content-placeholder: rgb(141 133 124);
+  --color-content-disabled: rgb(35 33 31 / 0.32);
+  --color-foreground: rgb(35 33 31);
+  --color-muted-foreground: rgb(113 106 99);
+  --color-textColor: #000;
+
+  /* Surfaces -------------------------------------------------------------- */
+  --color-app-bg: rgb(247 246 245);
+  --color-surface: rgb(247 246 245);
+  --color-background: #fff;
+  --color-card: #fff;
+  --color-popover: #fff;
+  --color-muted: rgb(214 211 208);
+  --color-bg-l0: rgb(247 246 245);
+  --color-bg-l1: #fff;
+  --color-bg-l2: rgb(243 242 241);
+  --color-topbar-bg: rgb(247 246 245);
+  --color-navbar-bg: rgb(247 246 245);
+  --color-toolbar-bg: rgb(243 242 241);
+  --color-sidebar: rgb(247 246 245);
+
+  /* Borders --------------------------------------------------------------- */
+  --color-border: rgb(237 236 234);
+  --color-border-primary: rgb(237 236 234);
+  --color-border-secondary: rgb(237 236 234 / 0.9);
+  --color-border-tertiary: rgb(237 236 234 / 0.8);
+  --color-border-strong: rgb(35 33 31);
+  --color-card-border: rgb(180 175 168 / 0.46);
+  --color-topbar-border: rgb(227 225 223);
+  --color-input: rgb(214 211 208);
+  --color-ring: rgb(180 175 168);
+
+  /* Buttons --------------------------------------------------------------- */
+  --color-button: #fff;
+  --color-button-border: rgb(237 236 234);
+  --color-button-hover: rgb(247 246 245 / 0.9);
+  --color-button-border-hover: rgb(227 225 223 / 0.9);
+
+  /* Datatable ------------------------------------------------------------- */
+  --color-datatable-header: rgb(247 246 245);
+  --color-datatable-header-hover: rgb(237 236 234);
+  --color-overlay-primary: rgb(46 44 41 / 0.06);
+  --color-overlay-secondary: rgb(46 44 41 / 0.04);
+
+  /* Added for the `Add column` dialog, whose DOM references these. Values are
+     read off the captured screenshot, not invented. */
+  /* The Accounts entity colour, sampled from its nav and title glyph. */
+  --color-accent-pink: #e9569e;
+  --color-input-background: #fff;
+  --color-tertiary: rgb(237 236 234);
+  --color-tertiary-foreground: rgb(70 66 62);
+  --color-secondary: rgb(237 236 234);
+  --color-secondary-foreground: rgb(35 33 31);
+  --color-secondary-hover: rgb(227 225 223);
+
+  /* Accents --------------------------------------------------------------- */
+  --color-accent-select: #0b64e9;
+  --color-accent-ai: #6b4aff;
+  /* Active view tab. Sampled from the design — distinct from both accents. */
+  --color-tab-active: #605eff;
+  --color-accent-blue-primary: #59f;
+  --color-accent-green-primary: #34c759;
+  --color-accent-red-primary: #d73b3b;
+  --color-accent-yellow-primary: #f9b804;
+  --color-linkedin-blue: #0072b1;
+  --color-destructive: #dc2626;
+
+  /* Radii ----------------------------------------------------------------- */
+  --radius-xs: 0.125rem;
+  --radius-sm: calc(0.625rem - 4px);
+  --radius-md: calc(0.625rem - 2px);
+  --radius-lg: 0.625rem;
+
+  /* Shadows --------------------------------------------------------------- */
+  --shadow-button: 0 1px 2px 0 rgb(21 20 19 / 0.08);
+  --shadow-pill: 0 0 0 0.5px rgb(214 211 208), 0 1px 2px 0 rgb(21 20 19 / 0.08);
+  --shadow-card: 0 0 0 0.5px rgb(214 211 208), 0 1px 4px 0 rgb(46 44 41 / 0.1),
+    0 2px 8px -2px rgb(46 44 41 / 0.06);
+  --shadow-input: inset 0 0.5px 0.8px 0.4px rgb(21 20 19 / 0.2),
+    0 0 0 0.5px rgb(214 211 208);
+  --shadow-navbar: inset -3px 0 4px 0 rgb(0 0 0 / 0.043),
+    inset -1px 0 0 0 rgb(237 236 234 / 0.9);
+  --shadow-main-panel: 0 4px 3px -3px rgb(0 0 0 / 0.078),
+    0 1px 5px 1px rgb(0 0 0 / 0.051), 0 1px 6px -1px rgb(0 0 0 / 0.039);
+  /* Not present in the token dump — `shadow-cell-focus` is a bespoke utility in
+     Rox's CSS. Approximated as a focus ring until the real value is available. */
+  --shadow-cell-focus: inset 0 0 0 1px rgb(237 236 234 / 0.8);
+
+  /* Motion ---------------------------------------------------------------- */
+  /* `backwards` holds the from-state through the stagger delay, so a row that
+     has not started yet is invisible rather than flashing at full opacity. */
+  --animate-row-in: row-in 300ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+
+  @keyframes row-in {
+    from { opacity: 0; transform: translateY(3px); }
+    to   { opacity: 1; transform: none; }
+  }
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--color-app-bg);
+    color: var(--color-content-primary);
+    font-family: var(--font-sans);
+  }
+}
+
+@layer base {
+  /* The dev panel's motion switch. Kills every animation and transition inside
+     the table without each component having to thread the flag through. */
+  [data-motion='off'],
+  [data-motion='off'] *,
+  [data-motion='off'] *::before,
+  [data-motion='off'] *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

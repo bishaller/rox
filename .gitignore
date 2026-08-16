@@ -1,0 +1,12 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+.vite
+*.tsbuildinfo
+
+# DOM/token captures from the live app — contain real CRM records
+.extract/
+*.extract.json
+html.html

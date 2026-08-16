@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:paper.design)",
+      "Bash(claude mcp *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" --max-time 5 http://127.0.0.1:29979/mcp)",
+      "Read(//Applications/Paper.app/**)",
+      "Bash(lsof -nP -iTCP:29979 -sTCP:LISTEN)",
+      "Bash(curl -s --max-time 8 -X POST http://127.0.0.1:29979/mcp -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"probe\",\"version\":\"1.0\"}}}' -w \"\\\\n[http %{http_code}]\\\\n\")"
+    ]
+  },
+  "enabledPlugins": {}
+}

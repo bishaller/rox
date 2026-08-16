@@ -1,0 +1,89 @@
+import { cn } from '@/lib/cn'
+
+/* ─────────────────────────────────────────────────────────
+ * Icons.
+ *
+ * Paths are taken verbatim from @gravity-ui/icons — the set Rox itself uses.
+ * That was confirmed when the play glyph captured from the live Rox DOM turned
+ * out to be byte-identical to Gravity's `circle-play`. These are filled
+ * (`fill-rule: evenodd`), not stroked.
+ *
+ * Only LinkedIn is bespoke — a brand mark, absent from Gravity.
+ * ───────────────────────────────────────────────────────── */
+
+type IconProps = { className?: string }
+
+/** All Gravity glyphs share a 16×16 box and a single evenodd path. */
+function Glyph({ d, size, className }: { d: string; size: string; className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none"
+      viewBox="0 0 16 16" className={cn(size, className)} aria-hidden="true">
+      <path fill="currentColor" fillRule="evenodd" d={d} clipRule="evenodd" />
+    </svg>
+  )
+}
+
+const P = {
+  circlePlay: 'M13.5 8a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0M15 8A7 7 0 1 1 1 8a7 7 0 0 1 14 0m-7.75 3.031L11 8.866a1 1 0 0 0 0-1.732L7.25 4.969a1 1 0 0 0-1.5.866v4.33a1 1 0 0 0 1.5.866',
+  plus: 'M8 1.75a.75.75 0 0 1 .75.75v4.75h4.75a.75.75 0 0 1 0 1.5H8.75v4.75a.75.75 0 0 1-1.5 0V8.75H2.5a.75.75 0 0 1 0-1.5h4.75V2.5A.75.75 0 0 1 8 1.75',
+  chevronDown: 'M2.97 5.47a.75.75 0 0 1 1.06 0L8 9.44l3.97-3.97a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 0 1 0-1.06',
+  magnifier: 'M11.5 7a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0m-.82 4.74a6 6 0 1 1 1.06-1.06l2.79 2.79a.75.75 0 1 1-1.06 1.06z',
+  check: 'M13.488 3.43a.75.75 0 0 1 .081 1.058l-6 7a.75.75 0 0 1-1.1.042l-3.5-3.5A.75.75 0 0 1 4.03 6.97l2.928 2.927 5.473-6.385a.75.75 0 0 1 1.057-.081',
+  arrowDown: 'M8 1.25a.75.75 0 0 1 .75.75v10.19l2.72-2.72a.75.75 0 1 1 1.06 1.06l-4 4a.75.75 0 0 1-1.06 0l-4-4a.75.75 0 1 1 1.06-1.06l2.72 2.72V2A.75.75 0 0 1 8 1.25',
+  openExternal: 'M10 1.5A.75.75 0 0 0 10 3h1.94L6.97 7.97a.75.75 0 0 0 1.06 1.06L13 4.06V6a.75.75 0 0 0 1.5 0V2.25a.75.75 0 0 0-.75-.75zM7.5 3.25a.75.75 0 0 0-.75-.75H4.5a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V9.25a.75.75 0 0 0-1.5 0v2.25a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 3 11.5v-6A1.5 1.5 0 0 1 4.5 4h2.25a.75.75 0 0 0 .75-.75',
+  database: 'M11.615 4.888c.814-.375.885-.714.885-.888s-.071-.513-.885-.888S9.538 2.5 8 2.5s-2.799.237-3.615.612C3.57 3.487 3.5 3.826 3.5 4s.071.513.885.888S6.462 5.5 8 5.5s2.799-.237 3.615-.612m.885 1.235C11.4 6.708 9.792 7 8 7s-3.4-.292-4.5-.877V8c0 .174.071.513.885.888S6.462 9.5 8 9.5s2.799-.237 3.615-.612c.814-.375.885-.714.885-.888zm0 4C11.4 10.708 9.792 11 8 11s-3.4-.293-4.5-.877V12c0 .174.071.513.885.887.816.377 2.077.613 3.615.613s2.799-.236 3.615-.613c.814-.374.885-.713.885-.887zM14 4c0-2-2.686-3-6-3S2 2 2 4v8c0 2 2.686 3 6 3s6-1 6-3z',
+  funnel: 'M12.5 4c0 .174-.071.513-.885.888S9.538 5.5 8 5.5s-2.799-.237-3.615-.612C3.57 4.513 3.5 4.174 3.5 4s.071-.513.885-.888S6.462 2.5 8 2.5s2.799.237 3.615.612c.814.375.885.714.885.888m-1.448 2.66C10.158 6.888 9.115 7 8 7s-2.158-.113-3.052-.34l1.98 2.905c.21.308.322.672.322 1.044v3.37q.088.02.25.021c.422 0 .749-.14.95-.316.185-.162.3-.38.3-.684v-2.39c0-.373.112-.737.322-1.045zM8 1c3.314 0 6 1 6 3a3.24 3.24 0 0 1-.563 1.826l-3.125 4.584a.35.35 0 0 0-.062.2V13c0 1.5-1.25 2.5-2.75 2.5s-1.75-1-1.75-1v-3.89a.35.35 0 0 0-.061-.2L2.563 5.826A3.24 3.24 0 0 1 2 4c0-2 2.686-3 6-3m-.88 12.936q-.015-.008-.013-.01z',
+  sort: 'M2.22 13.28a.75.75 0 0 0 1.06 0l2-2a.75.75 0 1 0-1.06-1.06l-.72.72V3.25a.75.75 0 0 0-1.5 0v7.69l-.72-.72a.75.75 0 1 0-1.06 1.06zM7 3.25a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 7 3.25m.75 4a.75.75 0 0 0 0 1.5h5.5a.75.75 0 0 0 0-1.5zm0 4.75a.75.75 0 0 0 0 1.5h2.5a.75.75 0 0 0 0-1.5z',
+  circlePlus: 'M13.5 8a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0M15 8A7 7 0 1 1 1 8a7 7 0 0 1 14 0M8.75 5.5a.75.75 0 0 0-1.5 0v1.75H5.5a.75.75 0 1 0 0 1.5h1.75v1.75a.75.75 0 0 0 1.5 0V8.75h1.75a.75.75 0 0 0 0-1.5H8.75z',
+  persons: 'M5.5 6a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3m0 1.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-3.029 2.886c-.777.54-.971 1.063-.971 1.306 0 .446.362.808.808.808h6.384a.81.81 0 0 0 .808-.808c0-.244-.194-.767-.971-1.306C7.792 9.875 6.719 9.5 5.5 9.5s-2.292.375-3.029.886M0 11.692C0 9.846 2.475 8 5.5 8c1.18 0 2.278.281 3.177.734A5.67 5.67 0 0 1 11.5 8c2.475 0 4.5 1.538 4.5 3.077A1.923 1.923 0 0 1 14.077 13h-3.483c-.416.604-1.113 1-1.902 1H2.308A2.31 2.31 0 0 1 0 11.692m10.991-.192h3.086c.234 0 .423-.19.423-.423 0-.103-.096-.472-.688-.89-.554-.393-1.375-.687-2.312-.687-.517 0-.999.09-1.42.236.526.534.854 1.146.911 1.764M12.5 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0M14 5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0',
+  ellipsis: 'M3 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3M9.5 8a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m5 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0',
+  rotateLeft: 'M8 1.5a6.5 6.5 0 1 1-6.445 7.348.75.75 0 1 1 1.487-.194A5.001 5.001 0 1 0 4.43 4.5h1.32a.75.75 0 0 1 0 1.5h-3A.75.75 0 0 1 2 5.25v-3a.75.75 0 0 1 1.5 0v1.06A6.48 6.48 0 0 1 8 1.5',
+} as const
+
+/** Enrichment status — Gravity `circle-play`, identical to Rox's own. */
+export const PlayCircleIcon = (p: IconProps) => <Glyph d={P.circlePlay} size="size-3" {...p} />
+export const PlusIcon = (p: IconProps) => <Glyph d={P.plus} size="size-3.5" {...p} />
+export const ChevronDownIcon = (p: IconProps) => <Glyph d={P.chevronDown} size="size-3.5" {...p} />
+export const SearchIcon = (p: IconProps) => <Glyph d={P.magnifier} size="size-4" {...p} />
+export const CheckIcon = (p: IconProps) => <Glyph d={P.check} size="size-3" {...p} />
+/** Sort indicator. Rotated 180° by the caller for descending. */
+export const SortArrowIcon = (p: IconProps) => <Glyph d={P.arrowDown} size="size-3" {...p} />
+export const ExternalLinkIcon = (p: IconProps) => <Glyph d={P.openExternal} size="size-3" {...p} />
+/** Open-record affordance — same glyph, larger. */
+export const OpenIcon = (p: IconProps) => <Glyph d={P.openExternal} size="size-3.5" {...p} />
+/** "In CRM" source selector. */
+export const StackIcon = (p: IconProps) => <Glyph d={P.database} size="size-3.5" {...p} />
+export const FilterIcon = (p: IconProps) => <Glyph d={P.funnel} size="size-3.5" {...p} />
+export const SortIcon = (p: IconProps) => <Glyph d={P.sort} size="size-3.5" {...p} />
+/** "Add Column". */
+export const PlusCircleIcon = (p: IconProps) => <Glyph d={P.circlePlus} size="size-4" {...p} />
+/** Marks a shared/team view in the tab strip. */
+export const PeopleIcon = (p: IconProps) => <Glyph d={P.persons} size="size-3.5" {...p} />
+/** Column and view options menus. */
+export const EllipsisIcon = (p: IconProps) => <Glyph d={P.ellipsis} size="size-4" {...p} />
+/** Re-run enrichment. */
+export const RefreshIcon = (p: IconProps) => <Glyph d={P.rotateLeft} size="size-3.5" {...p} />
+
+/** Brand mark — not part of Gravity. */
+export function LinkedInIcon({ className }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+      className={cn('size-4 shrink-0', className)} aria-hidden="true">
+      <path fill="currentColor"
+        d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.35V9h3.41v1.56h.05a3.74 3.74 0 0 1 3.37-1.85c3.6 0 4.27 2.37 4.27 5.46zM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13M7.12 20.45H3.55V9h3.57zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.22.79 24 1.77 24h20.45c.98 0 1.78-.78 1.78-1.73V1.73C24 .77 23.2 0 22.22 0" />
+    </svg>
+  )
+}
+
+/** The small blue LinkedIn chip shown beside a contact's name. */
+export function LinkedInBadge({ className }: IconProps) {
+  return (
+    <span aria-hidden="true"
+      className={cn(
+        'bg-linkedin-blue flex size-[18px] shrink-0 items-center justify-center rounded-[3px]',
+        className,
+      )}>
+      <span className="text-[9px] leading-none font-semibold text-white">in</span>
+    </span>
+  )
+}
