@@ -102,7 +102,7 @@ export function Toolbar({
               where the old pill said how many. */}
           {active > 0 && (
             <span aria-hidden="true"
-              className="motion-safe:animate-check-in absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-stone-800 px-1 text-[10px] leading-none font-medium text-white tabular-nums">
+              className="motion-safe:animate-check-in absolute -top-1.5 right-0 z-10 flex h-4 min-w-4 items-center justify-center rounded-full bg-stone-800 px-1 text-[10px] leading-none font-medium text-white tabular-nums">
               {active}
             </span>
           )}
