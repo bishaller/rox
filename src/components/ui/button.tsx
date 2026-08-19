@@ -23,7 +23,7 @@ const BASE =
   'inline-flex items-center whitespace-nowrap transition-all ' +
   'disabled:cursor-not-allowed disabled:opacity-50 ' +
   '[&_svg]:pointer-events-none [&_svg]:shrink-0 outline-none ' +
-  'group/button select-none cursor-pointer shrink-0'
+  'group/button select-none cursor-pointer shrink-0 not-disabled:active:scale-[0.97]'
 
 const VARIANTS: Record<ButtonVariant, string> = {
   default: cn(

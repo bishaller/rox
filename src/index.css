@@ -81,6 +81,8 @@
      read off the captured screenshot, not invented. */
   /* The Accounts entity colour, sampled from its nav and title glyph. */
   --color-accent-pink: #e9569e;
+  /* The sidebar account chip. Sampled from the frame. */
+  --color-user-avatar: #4b9e86;
   --color-input-background: #fff;
   --color-tertiary: rgb(237 236 234);
   --color-tertiary-foreground: rgb(70 66 62);
@@ -88,16 +90,49 @@
   --color-secondary-foreground: rgb(35 33 31);
   --color-secondary-hover: rgb(227 225 223);
 
+  /* Figma `color/*` semantics (node 3762:5140) ----------------------------- */
+  /* Kept beside the os-gray ramp rather than replacing it — only the People
+     screen is re-specced, so Sidebar / Accounts / the modals must not move.
+     The frame's `color/stone/*` and `color/blue/400` are byte-identical to
+     Tailwind v4's built-in ramps, so only these semantics are new. */
+  --color-line: #eaeaec;
+  --color-line-strong: #dedee1;
+  --color-ink: #1a1a1e;
+  /* Row hover reads as #fafaf9 over white. Alpha rather than opaque, so the
+     selection tint underneath still shows through. Separate from
+     --color-overlay-secondary, which the `striped` dev switch owns. */
+  --color-overlay-row-hover: rgb(41 37 36 / 0.025);
+
+  /* Brand marks ----------------------------------------------------------- */
+  /* The domain column's lettermarks. Read from the Figma `brand/*` collection,
+     not sampled — these are the published values. */
+  --color-brand-cbre: #0c6e4e;
+  --color-brand-paychex: #1d5fab;
+  --color-brand-kbr: #3d4a5c;
+  --color-brand-boomi: #1b72e8;
+  --color-brand-dexterra: #e4572e;
+  /* Ground for a domain with no brand entry. */
+  --color-brand-default: rgb(113 106 99);
+
+  /* Indigo / violet ------------------------------------------------------- */
+  /* Published as `color/indigo/*` and `color/violet/300`. These carry the
+     active states — the selected view tab and the current nav item. */
+  --color-indigo-100: #e0e7ff;
+  --color-indigo-200: #c6d2ff;
+  --color-indigo-800: #372aac;
+  --color-violet-300: #c4b4ff;
+  /* The active nav glyph. Sampled from the frame; not in the variable dump. */
+  --color-violet-500: #845eee;
+
   /* Accents --------------------------------------------------------------- */
   --color-accent-select: #0b64e9;
   --color-accent-ai: #6b4aff;
-  /* Active view tab. Sampled from the design — distinct from both accents. */
-  --color-tab-active: #605eff;
   --color-accent-blue-primary: #59f;
   --color-accent-green-primary: #34c759;
   --color-accent-red-primary: #d73b3b;
   --color-accent-yellow-primary: #f9b804;
-  --color-linkedin-blue: #0072b1;
+  /* LinkedIn's own brand blue, read off the frame's exported cell glyph. */
+  --color-linkedin-blue: #0077b5;
   --color-destructive: #dc2626;
 
   /* Radii ----------------------------------------------------------------- */
@@ -108,6 +143,8 @@
 
   /* Shadows --------------------------------------------------------------- */
   --shadow-button: 0 1px 2px 0 rgb(21 20 19 / 0.08);
+  /* The frame's raised chrome: Add Contact, the Enrich chips. */
+  --shadow-raised: 0 1px 2px 0 rgb(23 23 31 / 0.06);
   --shadow-pill: 0 0 0 0.5px rgb(214 211 208), 0 1px 2px 0 rgb(21 20 19 / 0.08);
   --shadow-card: 0 0 0 0.5px rgb(214 211 208), 0 1px 4px 0 rgb(46 44 41 / 0.1),
     0 2px 8px -2px rgb(46 44 41 / 0.06);
@@ -122,6 +159,9 @@
   --shadow-cell-focus: inset 0 0 0 1px rgb(237 236 234 / 0.8);
 
   /* Motion ---------------------------------------------------------------- */
+  /* The built-in CSS easings are too weak to read as intentional. Strong
+     ease-out: starts fast, so the interface answers the moment it is touched. */
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
   /* `backwards` holds the from-state through the stagger delay, so a row that
      has not started yet is invisible rather than flashing at full opacity. */
   --animate-row-in: row-in 300ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
@@ -129,6 +169,94 @@
   @keyframes row-in {
     from { opacity: 0; transform: translateY(3px); }
     to   { opacity: 1; transform: none; }
+  }
+
+  /* Overlay panels. Opacity only — the filter panel is a form the user is
+     about to work in, and it holds still while it appears. */
+  --animate-menu-in: menu-in 110ms cubic-bezier(0.22, 1, 0.36, 1);
+
+  @keyframes menu-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  /* Context menus grow from the point that summoned them. The overlay hook
+     measures offsetWidth/offsetHeight — layout sizes, blind to transforms —
+     so the scale here cannot throw the viewport clamp off. */
+  --animate-menu-pop: menu-pop 150ms cubic-bezier(0.23, 1, 0.32, 1);
+
+  @keyframes menu-pop {
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  /* Tooltips grow down from their arrow tip. Entrance only — they are
+     dismissed by the cursor leaving, where an exit animation would lag the
+     pointer. */
+  --animate-tooltip-in: tooltip-in 150ms cubic-bezier(0.23, 1, 0.32, 1);
+
+  @keyframes tooltip-in {
+    from { opacity: 0; transform: translateX(-50%) scale(0.96); }
+    to   { opacity: 1; transform: translateX(-50%); }
+  }
+
+  /* A value landing in a cell — an enrichment result, a status chip. The same
+     rise as row-in, scaled down to a single value's weight. */
+  --animate-value-in: value-in 200ms cubic-bezier(0.23, 1, 0.32, 1);
+
+  @keyframes value-in {
+    from { opacity: 0; transform: translateY(2px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  /* Dialogs are centred, not anchored, so they scale in place. The translate
+     is carried through the keyframes — an animation's transform would
+     otherwise override the -translate-x/y-1/2 centring classes. */
+  --animate-dialog-in: dialog-in 200ms cubic-bezier(0.23, 1, 0.32, 1);
+
+  @keyframes dialog-in {
+    from { opacity: 0; transform: translate(-50%, -50%) scale(0.97); }
+    to   { opacity: 1; transform: translate(-50%, -50%); }
+  }
+
+  /* The checkbox glyph pops in a touch small — checking reads as an action,
+     not a swap. */
+  --animate-check-in: check-in 150ms cubic-bezier(0.23, 1, 0.32, 1);
+
+  @keyframes check-in {
+    from { opacity: 0; transform: scale(0.6); }
+    to   { opacity: 1; transform: none; }
+  }
+}
+
+@layer components {
+  /*
+   * Text that changes weight with state, without changing width.
+   *
+   * The element is sized by a hidden copy of itself set at the heaviest weight
+   * it will ever take, so going from 400 to 500 reflows nothing beside it — a
+   * row of pills does not shuffle sideways when one of them is selected.
+   *
+   * Carry the same string in `data-text`, and keep the visible text in a child
+   * so truncation applies to it rather than to the measurement.
+   */
+  .text-steady {
+    display: block;
+    min-width: 0;
+    /* Centred inside the reserved box, so the extra weight is taken up evenly
+       on both sides. Left-aligned, 400 → 500 grew rightward only and the text
+       visibly crept sideways. */
+    text-align: center;
+  }
+
+  .text-steady::before {
+    content: attr(data-text);
+    display: block;
+    height: 0;
+    overflow: hidden;
+    visibility: hidden;
+    white-space: nowrap;
+    font-weight: var(--steady-weight, 500);
   }
 }
 

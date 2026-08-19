@@ -18,21 +18,31 @@ npm run dev
 
 ```
 src/
-  index.css              Tailwind v4 @theme — mirrors the Figma "Rox Tokens" collection
-  lib/cn.ts              clsx + tailwind-merge helper
-  components/ui/
-    button.tsx           Base button + PlusIcon
-    pill.tsx             Pill (accent-select / neutral tones)
-  App.tsx                Component smoke test
+  index.css                    Tailwind v4 @theme — the Rox token collection
+  lib/cn.ts                    clsx + tailwind-merge helper
+  App.tsx                      Page switch (People / Accounts), dev-only chrome
+  pages/
+    PeopleContacts.tsx         People / My Contacts — the design frame below
+    Accounts.tsx               Accounts (self-contained; shares tokens only)
+  components/rox/              Sidebar, TopBar, Toolbar, ViewTabs, DataTable,
+                               DataCell, Favicon, AddColumnModal, icons
+  components/ui/               Button, Checkbox, Pill, Tag
+  data/                        contacts.ts (54 synthetic rows), accounts.ts
+  dev/                         ⌘K variant panel + its config context
 ```
 
 ## Design source
 
-- Figma: https://www.figma.com/design/HrUckDbbVh3llrCJypEr6n
+- Figma: https://www.figma.com/design/HiqD1YGT6aQOOG10lSbE9X/Rox?node-id=3698-25499
 - Paper: https://app.paper.design/file/01M00ZDW3V02X1DF7DQB6BS2XZ
 
 Token names in `@theme` match the Figma variable collection, so a change in one
-should be mirrored in the other.
+should be mirrored in the other. The `brand/*`, `indigo/*` and `violet/*` values
+are read from that collection; the warm `os-gray` ramp is still sampled from a
+screenshot of the running app.
+
+The ⌘K dev panel opens on the `figma` preset, which reproduces the frame above.
+The other presets are explorations around it.
 
 ## Annotating the UI
 
@@ -50,7 +60,11 @@ Setup for that is not covered here — see the Agentation site.
 
 ## Notes
 
-- The `Geist` font is referenced but not bundled. Add `@fontsource-variable/geist`
-  (or a `<link>` to Google Fonts) before the type will match the design exactly.
-- Token values are sampled from the app screenshot, not from the Rox codebase.
-  If the real theme values become available, update `@theme` in `src/index.css`.
+- Contact names, emails and LinkedIn handles in `src/data/contacts.ts` are
+  invented. The design frame shows real CRM records; they are deliberately not
+  reproduced here (see `.gitignore`).
+- The page is a rebuild, not an app: search, sort, selection, the enrichment
+  Run / Run All buttons and the Add-column dialog work; everything else
+  (Filter, Sort, In CRM, the view tabs, the breadcrumb menu) is inert by design.
+- Enrichment is mocked in `DataTable.tsx` — `categorize()` derives a category
+  from the row id so a re-run never reshuffles the column.

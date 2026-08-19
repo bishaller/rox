@@ -224,7 +224,7 @@ export function DevPanel() {
             <Scale value={config.density} onChange={(v) => setConfig('density', v)}
               options={[
                 { value: 'compact', label: '32' },
-                { value: 'default', label: '45' },
+                { value: 'default', label: '48' },
                 { value: 'comfortable', label: '56' },
               ]} />
             <Scale value={config.fontSize} onChange={(v) => setConfig('fontSize', v)}

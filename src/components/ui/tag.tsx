@@ -17,10 +17,12 @@ const TONE_DOT: Record<TagTone, string> = {
  * added without redesigning the cell.
  */
 export function Tag({
-  children, tone = 'neutral', className,
+  children, tone = 'neutral', pulse = false, className,
 }: {
   children: React.ReactNode
   tone?: TagTone
+  /** Breathes the dot — for states that are in flight rather than settled. */
+  pulse?: boolean
   className?: string
 }) {
   return (
@@ -31,7 +33,8 @@ export function Tag({
         className,
       )}
     >
-      <span aria-hidden="true" className={cn('size-1.5 shrink-0 rounded-full', TONE_DOT[tone])} />
+      <span aria-hidden="true"
+        className={cn('size-1.5 shrink-0 rounded-full', TONE_DOT[tone], pulse && 'motion-safe:animate-pulse')} />
       <span className="truncate">{children}</span>
     </span>
   )

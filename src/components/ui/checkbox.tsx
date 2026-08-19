@@ -34,17 +34,23 @@ export function Checkbox({
       <span
         aria-hidden="true"
         className={cn(
-          'flex size-4 shrink-0 items-center justify-center rounded-[4px] border transition-colors',
+          'flex size-4 shrink-0 items-center justify-center rounded-[4px] border',
+          'transition-[background-color,border-color,transform] duration-150 ease-out-strong',
+          /* The box takes the press, the glyph pops in a touch small — the
+             check reads as an action rather than a swap. */
+          'peer-active:scale-[0.92]',
           'peer-focus-visible:ring-ring/50 peer-focus-visible:ring-[3px]',
           checked || indeterminate
             ? 'bg-accent-select border-accent-select text-white'
-            : 'border-input bg-card',
+            /* 1.4px on #dedee1, per the frame — the default 1px on
+               --color-input read a shade too heavy against the new rules. */
+            : 'border-line-strong border-[1.4px] bg-card',
         )}
       >
         {indeterminate ? (
-          <span className="h-[1.5px] w-2 rounded-full bg-current" />
+          <span className="motion-safe:animate-check-in h-[1.5px] w-2 rounded-full bg-current" />
         ) : checked ? (
-          <CheckIcon className="size-3" />
+          <CheckIcon className="motion-safe:animate-check-in size-3" />
         ) : null}
       </span>
     </label>

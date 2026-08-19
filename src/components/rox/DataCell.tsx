@@ -11,20 +11,24 @@ import { EllipsisIcon, SortArrowIcon } from './icons'
  * `group` is the `<tr>`.
  */
 const CELL_BASE =
-  'group/cell text-content-secondary relative px-3 py-1 align-middle ' +
+  /* Values sit at the primary text colour. They were secondary, which read
+     as a table of disabled text next to the frame's near-black. */
+  'group/cell text-ink relative px-3 py-1 align-middle ' +
   "[&_*]:whitespace-nowrap after:pointer-events-none after:absolute " +
-  'after:inset-0 group-hover:after:bg-overlay-secondary ' +
+  'after:inset-0 group-hover:after:bg-overlay-row-hover ' +
   /* background = the selection tint, after:background = the hover overlay. */
   'transition-colors duration-150 after:transition-colors after:duration-150'
 
-export const HEADER_HEIGHT = 40
+/** Measured from the design frame: header 42, footer 36. */
+export const HEADER_HEIGHT = 42
+export const FOOTER_HEIGHT = 36
 
 const FONT_SIZE = { 12: 'text-[12px]', 13: 'text-[13px]', 14: 'text-[14px]' } as const
 
 /** Row and column rules are independent switches. */
 function gridLineClasses(gridH: boolean, gridV: boolean) {
   return cn(
-    (gridH || gridV) && 'border-border-tertiary',
+    (gridH || gridV) && 'border-line',
     gridH && 'border-b',
     gridV && 'border-r',
   )
@@ -91,10 +95,16 @@ export type HeaderCellProps = {
   /** Providing `onSort` turns the header into a sort control. */
   onSort?: () => void
   sortDirection?: SortDirection | null
+  /**
+   * Sits before the label, outside the sort button. The select-all checkbox
+   * lives here — it cannot go inside `children`, which is the button's content,
+   * because that would nest one control in another.
+   */
+  leading?: ReactNode
 }
 
 export function HeaderCell({
-  colId, children, className, sticky, stickyOffset, onSort, sortDirection,
+  colId, children, className, sticky, stickyOffset, onSort, sortDirection, leading,
 }: HeaderCellProps) {
   const { config } = useTableConfig()
   const isSticky = sticky && config.stickyColumns
@@ -112,12 +122,14 @@ export function HeaderCell({
       aria-sort={ariaSort}
       className={cn(
         // White ground, per the design — not the tinted datatable-header.
-        'bg-card hover:bg-os-gray-50 text-content-primary group/header',
-        // Colour is stated explicitly: the grid-line helper may contribute no
-        // border colour when both rule switches are off, and Tailwind would
-        // then fall back to currentColor.
-        'border-border-tertiary border-t',
+        'group/header bg-white text-ink hover:bg-stone-50',
+        // gridLineClasses first: the header's own colour has to win the
+        // twMerge, and it is stated after. The helper still contributes the
+        // vertical rule when `gridV` is on.
         gridLineClasses(config.gridH, config.gridV),
+        // The frame rules the header on both edges, in stone-200 rather than
+        // the lighter --color-line the body cells carry.
+        'border-stone-200 border-t border-b',
         FONT_SIZE[config.fontSize],
         'px-3 text-left font-medium whitespace-nowrap',
         className,
@@ -130,13 +142,14 @@ export function HeaderCell({
       }}
     >
       {onSort ? (
-        <span className="relative flex w-full items-center gap-1">
+        <span className="relative flex w-full items-center gap-2">
+          {leading}
           <button
             type="button"
             onClick={onSort}
             className="focus-visible:ring-ring/50 -mx-1 flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded px-1 outline-none focus-visible:ring-[3px]"
           >
-            <span className="min-w-0 truncate">{children}</span>
+            <span className="min-w-0 overflow-hidden text-clip">{children}</span>
             <SortArrowIcon
               className={cn(
                 'shrink-0 transition-[opacity,transform] duration-200 ease-out',
@@ -150,12 +163,12 @@ export function HeaderCell({
             type="button"
             aria-label={`Column options`}
             className={cn(
-              'text-content-tertiary hover:bg-os-gray-100 hover:text-content-primary',
+              'text-stone-400 hover:bg-stone-100 hover:text-stone-800',
               'focus-visible:ring-ring/50 absolute right-0 flex size-5 shrink-0 cursor-pointer',
               'items-center justify-center rounded outline-none focus-visible:ring-[3px]',
               /* Matches the header's own hover ground, so it masks the label
                  end it overlaps rather than letting text show through. */
-              'bg-os-gray-50 transition-opacity duration-150',
+              'bg-stone-50 transition-opacity duration-150',
               'pointer-events-none opacity-0',
               'group-hover/header:pointer-events-auto group-hover/header:opacity-100',
               'focus-visible:pointer-events-auto focus-visible:opacity-100',
@@ -165,7 +178,7 @@ export function HeaderCell({
           </button>
         </span>
       ) : (
-        children
+        <span className="flex w-full items-center gap-2">{leading}{children}</span>
       )}
     </th>
   )
@@ -188,13 +201,16 @@ export function FooterCell({
     <td
       data-col-id={colId}
       className={cn(
-        'bg-datatable-header text-content-tertiary border-t border-r border-border-tertiary',
+        /* stone-200 is the em-dash colour the frame uses for the columns with
+           nothing to total. `Stat` states its own two colours, so it is
+           unaffected by the base being this light. */
+        'border-line border-t border-r bg-stone-100 text-stone-200',
         'px-3 whitespace-nowrap',
         FONT_SIZE[config.fontSize],
         className,
       )}
       style={{
-        height: HEADER_HEIGHT,
+        height: FOOTER_HEIGHT,
         position: 'sticky',
         bottom: 0,
         ...(isSticky ? { [sticky]: stickyOffset ?? '0px', zIndex: 40 } : { zIndex: 30 }),
@@ -207,10 +223,10 @@ export function FooterCell({
 
 /** The em-dash rendered in empty cells. */
 export function EmptyValue() {
-  return <span className="text-content-tertiary text-xs">—</span>
+  return <span className="text-[14px] text-stone-200">—</span>
 }
 
-/** Plain truncating text value, as used by the email / company columns. */
+/** Plain single-line value. Crops at the cell edge — no ellipsis, per the frame. */
 export function TextValue({ children }: { children: ReactNode }) {
-  return <span className="line-clamp-2 truncate whitespace-pre-wrap">{children}</span>
+  return <span className="overflow-hidden whitespace-nowrap text-clip">{children}</span>
 }

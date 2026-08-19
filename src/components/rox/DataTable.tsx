@@ -1,43 +1,49 @@
-import { type CSSProperties, useMemo, useState } from 'react'
-import { type Contact, contacts, faviconUrl } from '@/data/contacts'
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react'
+import { type Contact, contacts } from '@/data/contacts'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Favicon } from './Favicon'
 import { Tag } from '@/components/ui/tag'
 import { cn } from '@/lib/cn'
+import { type Filter, type SortState, matchesFilters } from '@/lib/filters'
 import { useTableConfig } from '@/dev/tableConfig'
 import {
-  DataCell, EmptyValue, FooterCell, HeaderCell, type SortDirection, TextValue,
+  DataCell, EmptyValue, FooterCell, HeaderCell, TextValue,
 } from './DataCell'
 import {
-  ExternalLinkIcon, LinkedInBadge, OpenIcon, PlayCircleIcon, PlusIcon, RefreshIcon,
+  ExternalLinkIcon, LinkedInBadge, PlayCircleIcon, PlusCircleIcon, RefreshIcon,
 } from './icons'
 
 const AI_COL = 'categorize_the_people_from_the_kind_of_work_they_d'
 
-type SortKey = Extract<
-  keyof Contact,
-  'name' | 'title' | 'email' | 'companyName' | 'companyDomain' | 'linkedinUrl' | 'department'
->
+/** Sortable columns are exactly the filterable fields. */
+type SortKey = SortState['key']
 
 /**
- * Widths measured from the design PNG (scale-verified against the 212px sidebar):
- * 231 · 214 · 210 · 130 · 149 · 115 · 160 · 140 · 108, plus a 40px gutter.
- * The gutter was measured at 46 but is squared off to the 40px header height.
+ * Widths read off the Figma frame (node 3762:5140 — header 3762:5209, row
+ * 3762:5235): 230 · 130 · 215 · 210 · 149 · 225 · 247 · 98 — 1504 in total.
  *
- * `contact_2` is a genuine duplicate column in the design; reproduced deliberately.
+ * There is no select gutter any more: the checkbox sits inside the Contact
+ * cell, and Company has moved up to sit directly beside it.
+ *
+ * The frame's trailing 98 plus the right end of Department are covered by a
+ * floating 119px Add-column rail. We give that rail its own column instead, so
+ * it never sits on top of a header it has to hide — Department absorbs the
+ * remainder, which lands it at the 226 the frame leaves once the rail is
+ * subtracted.
+ *
+ * The earlier capture's duplicate `Contact` column is gone from this frame, and
+ * Linkedin roughly doubles to carry the full profile path.
  */
 const COLUMNS: { id: string; label: string; width: number; sortKey?: SortKey; flex?: boolean }[] = [
-  // Square: matches HEADER_HEIGHT, so the gutter reads as a 40×40 cell.
-  { id: 'select', label: '', width: 40 },
-  { id: 'name', label: 'Contact', width: 231, sortKey: 'name' },
-  { id: 'title', label: 'Title', width: 214, sortKey: 'title' },
-  { id: 'email', label: 'Email', width: 210, sortKey: 'email' },
+  { id: 'name', label: 'Contact', width: 230, sortKey: 'name' },
   { id: 'company_name', label: 'Company', width: 130, sortKey: 'companyName' },
+  { id: 'title', label: 'Title', width: 215, sortKey: 'title' },
+  { id: 'email', label: 'Email', width: 210, sortKey: 'email' },
   { id: 'company_domain', label: 'Domain', width: 149, sortKey: 'companyDomain' },
-  { id: 'linkedin_url', label: 'Linkedin', width: 115, sortKey: 'linkedinUrl' },
-  { id: 'contact_2', label: 'Contact', width: 160, sortKey: 'name' },
+  { id: 'linkedin_url', label: 'Linkedin', width: 225, sortKey: 'linkedinUrl' },
   // `flex` marks the column that absorbs any width beyond the design total.
-  { id: AI_COL, label: 'Department / Work', width: 140, sortKey: 'department', flex: true },
-  { id: 'addColumn', label: '', width: 108 },
+  { id: AI_COL, label: 'Department / Work Category', width: 226, sortKey: 'department', flex: true },
+  { id: 'addColumn', label: '', width: 119 },
 ]
 
 /** The design shows only the path portion, e.g. `/deepalidsfd…`. */
@@ -45,15 +51,8 @@ function linkedinPath(url: string) {
   return url.replace(/^.*linkedin\.com\/in/i, '') || url
 }
 
-/** Design total (1503). The table never renders narrower than this. */
+/** Design total. The table never renders narrower than this. */
 const TABLE_MIN_WIDTH = COLUMNS.reduce((n, c) => n + c.width, 0)
-
-/**
- * The name column pins flush against the select column, so this MUST equal the
- * select column's width. Any mismatch opens a seam that the panel shows white
- * through on every sticky row.
- */
-const NAME_STICKY_LEFT = `${COLUMNS[0].width}px`
 
 /** Fields the search box matches against. */
 const SEARCHABLE: (keyof Contact)[] = [
@@ -73,47 +72,151 @@ function compare(a: Contact, b: Contact, key: SortKey) {
 function LinkValue({ href, children }: { href: string; children: React.ReactNode }) {
   return (
     <a href={`https://${href}`} target="_blank" rel="noreferrer"
-      className="focus-visible:ring-ring/50 text-content-secondary inline-flex min-w-0 items-center gap-1 rounded-sm outline-none hover:underline focus-visible:ring-[3px]">
-      <span className="truncate">{children}</span>
-      <ExternalLinkIcon className="text-content-quaternary shrink-0" />
+      className="focus-visible:ring-ring/50 inline-flex min-w-0 items-center gap-1 rounded-sm outline-none hover:underline focus-visible:ring-[3px]">
+      <span className="overflow-hidden text-clip">{children}</span>
+      {/* The open-in-new glyph only surfaces when the row is under the cursor
+          (or the link focused) — at rest the column is just domains. */}
+      <ExternalLinkIcon className={cn(
+        'text-content-quaternary shrink-0 opacity-0 transition-opacity duration-150',
+        'group-hover:opacity-100 group-focus-within/cell:opacity-100',
+      )} />
     </a>
   )
+}
+
+/**
+ * The enrichment trigger — `Enrich` in an un-enriched cell, `Enrich All` in the
+ * footer. 25px tall with a hairline border and the faintest lift, exactly as in
+ * the frame; the play glyph is on the `enrichGlyph` switch.
+ */
+function RunButton({
+  label, onClick, disabled,
+}: {
+  label: string
+  onClick: () => void
+  disabled?: boolean
+}) {
+  const { config } = useTableConfig()
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        'border-line-strong shadow-raised flex h-[25px] shrink-0 cursor-pointer',
+        'items-center gap-1.5 rounded-[8px] border bg-white pr-[7px] pl-1.5',
+        'text-[14px] font-medium whitespace-nowrap text-stone-800',
+        'transition-[background-color,transform] duration-150 ease-out-strong outline-none',
+        'not-disabled:active:scale-[0.97]',
+        'hover:bg-stone-50 focus-visible:ring-ring/50 focus-visible:ring-[3px]',
+        'disabled:cursor-default disabled:opacity-55 disabled:hover:bg-white',
+      )}
+    >
+      {/* stone-400, read off the frame's exported `circle-play` (#a6a09b) —
+          a step lighter than the label beside it, not the same weight. */}
+      {config.enrichGlyph && <PlayCircleIcon className="size-4 shrink-0 text-stone-400" />}
+      {label}
+    </button>
+  )
+}
+
+/** The categories the mock enrichment can return. */
+const CATEGORIES = ['Sales', 'Engineering', 'Finance', 'Product', 'Operations', 'Marketing']
+
+/**
+ * Stands in for the real enrichment call. Derived from the row id so a given
+ * contact always resolves to the same category — re-running never shuffles the
+ * column, which would read as a bug rather than a refresh.
+ */
+function categorize(id: string) {
+  let h = 0
+  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0
+  return CATEGORIES[h % CATEGORIES.length]
 }
 
 /** Footer statistic: dark value, muted label. */
 function Stat({ value, label }: { value: React.ReactNode; label: string }) {
   return (
-    <span>
-      <span className="text-content-primary font-medium tabular-nums">{value}</span>{' '}
-      <span className="text-content-tertiary">{label}</span>
+    <span className="inline-flex items-center gap-1.5 align-middle">
+      <span className="text-ink text-[14px] font-medium tabular-nums">{value}</span>
+      <span className="text-[13px] text-stone-400">{label}</span>
     </span>
   )
 }
 
-export function DataTable({ query = '' }: { query?: string }) {
+export type DataTableProps = {
+  query?: string
+  filters?: Filter[]
+  /** Controlled: the page owns sort, so the toolbar and saved views set it too. */
+  sort?: SortState | null
+  onSortChange?: (next: SortState | null) => void
+  /** Opens the Add-column dialog. Owned by the page, which mounts the modal. */
+  onAddColumn?: () => void
+}
+
+export function DataTable({
+  query = '', filters = [], sort = null, onSortChange, onAddColumn,
+}: DataTableProps) {
   const { config } = useTableConfig()
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [sort, setSort] = useState<{ key: SortKey; dir: SortDirection } | null>(null)
+
+  /* Enrichment results layered over the seed data, so `contacts` stays the
+     as-designed starting state and a reload returns to it. */
+  const [enriched, setEnriched] = useState<Record<string, string>>({})
+  const [running, setRunning] = useState<Set<string>>(new Set())
+  /* Cleared on unmount so a pending run cannot set state on a dead tree. */
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([])
+  useEffect(() => () => timers.current.forEach(clearTimeout), [])
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
+    const base = contacts.map((c) =>
+      enriched[c.id] ? { ...c, department: enriched[c.id] } : c)
+    /* Filters and search stack: the panel narrows the set, search narrows it
+       again. */
+    const matched = filters.length ? base.filter((c) => matchesFilters(c, filters)) : base
     const filtered = q
-      ? contacts.filter((c) =>
+      ? matched.filter((c) =>
           SEARCHABLE.some((k) => String(c[k] ?? '').toLowerCase().includes(q)))
-      : contacts
+      : matched
     if (!sort) return filtered
     const factor = sort.dir === 'asc' ? 1 : -1
     return [...filtered].sort((a, b) => compare(a, b, sort.key) * factor)
-  }, [query, sort])
+  }, [query, sort, enriched, filters])
 
-  const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.id))
-  const someSelected = !allSelected && rows.some((r) => selected.has(r.id))
+  /**
+   * Mock enrichment. `stagger` spaces a Run All out so the column fills in
+   * visibly rather than snapping all at once.
+   */
+  function run(ids: string[]) {
+    const pending = ids.filter((id) => !running.has(id))
+    if (pending.length === 0) return
+    setRunning((current) => new Set([...current, ...pending]))
+
+    pending.forEach((id, i) => {
+      const t = setTimeout(() => {
+        setEnriched((current) => ({ ...current, [id]: categorize(id) }))
+        setRunning((current) => {
+          const next = new Set(current)
+          next.delete(id)
+          return next
+        })
+      }, 450 + i * 90)
+      timers.current.push(t)
+    })
+  }
+
+  /** Rows the footer's Run All would act on. */
+  const unenriched = rows.filter((r) => !r.department).map((r) => r.id)
+
+  const visibleSelected = rows.filter((r) => selected.has(r.id)).length
+  const allSelected = rows.length > 0 && visibleSelected === rows.length
+  const someSelected = !allSelected && visibleSelected > 0
 
   function toggleSort(key: SortKey) {
-    setSort((current) => {
-      if (current?.key !== key) return { key, dir: 'asc' }
-      return current.dir === 'asc' ? { key, dir: 'desc' } : null
-    })
+    if (sort?.key !== key) return onSortChange?.({ key, dir: 'asc' })
+    onSortChange?.(sort.dir === 'asc' ? { key, dir: 'desc' } : null)
   }
 
   function toggleRow(id: string) {
@@ -135,8 +238,6 @@ export function DataTable({ query = '' }: { query?: string }) {
   }
 
   const { showRowNumber: showNumber, showCheckbox } = config
-  /* Both on = number that yields to the checkbox on hover or selection. */
-  const swaps = showNumber && showCheckbox
 
   return (
     /* `border-separate` + zero spacing keeps per-cell borders while allowing
@@ -158,33 +259,50 @@ export function DataTable({ query = '' }: { query?: string }) {
 
       <thead>
         <tr>
-          <HeaderCell colId="select" sticky="left" stickyOffset="0px" className="px-0">
-            {/* pl-4 matches the px-4 used by the breadcrumb, tab strip and
-                toolbar, so the whole left edge of the panel lines up. */}
-            <div className="flex w-full items-center pl-4">
-              {showCheckbox ? (
-                <Checkbox checked={allSelected} indeterminate={someSelected} onChange={toggleAll}
-                  label={allSelected ? 'Deselect all contacts' : 'Select all contacts'} />
-              ) : (
-                <span className="text-content-quaternary text-xs">#</span>
-              )}
-            </div>
+          {/* Select-all rides in the Contact header, `leading` so it stays
+              outside the sort button rather than nested inside it. */}
+          <HeaderCell
+            colId="name"
+            sticky="left"
+            stickyOffset="0px"
+            className="pl-4"
+            onSort={() => toggleSort('name')}
+            sortDirection={sort && sort.key === 'name' ? sort.dir : null}
+            leading={showCheckbox ? (
+              <Checkbox checked={allSelected} indeterminate={someSelected} onChange={toggleAll}
+                label={allSelected ? 'Deselect all contacts' : 'Select all contacts'} />
+            ) : undefined}
+          >
+            Contact
           </HeaderCell>
 
           {COLUMNS.slice(1, -1).map((c) => (
             <HeaderCell key={c.id} colId={c.id}
-              sticky={c.id === 'name' ? 'left' : undefined}
-              stickyOffset={c.id === 'name' ? NAME_STICKY_LEFT : undefined}
               onSort={c.sortKey ? () => toggleSort(c.sortKey!) : undefined}
               sortDirection={sort && sort.key === c.sortKey ? sort.dir : null}>
               {c.label}
             </HeaderCell>
           ))}
 
-          <HeaderCell colId="addColumn" sticky="right" stickyOffset="0px" className="border-l">
-            <span className="flex w-full items-center justify-center">
-              <PlusIcon className="text-content-tertiary" />
-              <span className="sr-only">Add column</span>
+          {/* The design labels this rather than showing a bare glyph, and pins
+              it to the right edge so it survives horizontal scrolling. */}
+          <HeaderCell colId="addColumn" sticky="right" stickyOffset="0px"
+            className="border-l border-stone-200 px-0">
+            <span className="flex w-full items-center px-1">
+              <button
+                type="button"
+                onClick={onAddColumn}
+                className={cn(
+                  'focus-visible:ring-ring/50 flex h-[30px] w-full cursor-pointer items-center',
+                  'gap-1.5 rounded-[8px] px-2 text-[14px] font-medium whitespace-nowrap',
+                  'text-stone-800 outline-none',
+                  'transition-[background-color,transform] duration-150 ease-out-strong active:scale-[0.97]',
+                  'hover:bg-stone-100 focus-visible:ring-[3px]',
+                )}
+              >
+                <PlusCircleIcon className="size-4 shrink-0 text-stone-400" />
+                Add column
+              </button>
             </span>
           </HeaderCell>
         </tr>
@@ -193,12 +311,18 @@ export function DataTable({ query = '' }: { query?: string }) {
       {/* Re-keying on the sort remounts the rows, which replays the entrance
           stagger — a cheap way to show the reorder without a FLIP transform,
           which would break the sticky columns. */}
-      <tbody key={sort ? `${sort.key}:${sort.dir}` : 'unsorted'}>
+      <tbody
+        key={sort ? `${sort.key}:${sort.dir}` : 'unsorted'}
+        /* The footer draws its own top rule, so the last row keeping its
+           bottom one painted two hairlines back to back — a visibly heavier
+           line above the calculation row than between any two rows. */
+        className={cn(config.showFooter && '[&>tr:last-child>td]:border-b-0')}
+      >
         {rows.length === 0 && (
           <tr>
             <td colSpan={COLUMNS.length}
               className="text-content-tertiary border-border-tertiary border-b px-4 py-10 text-center text-[13px]">
-              No contacts match “{query}”.
+              {query ? <>No contacts match “{query}”.</> : 'No contacts match these filters.'}
             </td>
           </tr>
         )}
@@ -211,66 +335,43 @@ export function DataTable({ query = '' }: { query?: string }) {
               /* Capped so row 54 does not wait three quarters of a second. */
               style={{ '--row-i': Math.min(index, 16) } as CSSProperties}
               className={cn('group', config.striped && 'even:bg-overlay-secondary')}>
-              <DataCell {...cell} colId="select" sticky="left" stickyOffset="0px" className="px-0">
-                <div className="relative flex h-full w-full items-center pl-4">
+              {/* Contact: checkbox, then the name. No company label — Company
+                  is its own column now — and no row number; the design dropped
+                  the gutter entirely. The number is kept behind its dev switch
+                  and rides here when on. */}
+              <DataCell {...cell} colId="name" sticky="left" stickyOffset="0px" className="pl-4">
+                {/* 16px pad + 16px box + 8px gap puts the name on 40. The pad
+                    is 16 rather than the frame's 14 so the checkbox shares a
+                    left edge with the first view tab and the breadcrumb. */}
+                <div className="relative flex min-w-0 flex-1 items-center gap-2">
                   {showNumber && (
-                    <span className={cn(
-                      'text-content-tertiary text-xs tabular-nums transition-opacity duration-150',
-                      swaps && 'group-hover:opacity-0',
-                      swaps && isSelected && 'opacity-0',
-                    )}>
+                    <span className="text-content-tertiary w-5 shrink-0 text-xs tabular-nums">
                       {index + 1}
                     </span>
                   )}
                   {showCheckbox && (
-                    /* When both are on they occupy the same spot and crossfade,
-                       so the swap reads as one control rather than two. */
-                    <span className={cn(
-                      swaps && 'absolute inset-y-0 left-4 flex items-center transition-opacity duration-150',
-                      swaps && 'opacity-0 group-hover:opacity-100 focus-within:opacity-100',
-                      swaps && isSelected && 'opacity-100',
-                    )}>
-                      <Checkbox checked={isSelected} onChange={() => toggleRow(row.id)}
-                        label={`Select ${row.name}`} />
-                    </span>
+                    <Checkbox checked={isSelected} onChange={() => toggleRow(row.id)}
+                      label={`Select ${row.name}`} />
                   )}
+
+                  {/* The hover underline is drawn, not text-decoration — a
+                      decoration can't animate, and this one rises 2px into
+                      place. 100ms: it must read as the cursor's own doing. */}
+                  <span className={cn(
+                    'text-content-primary relative min-w-0 overflow-hidden font-medium text-clip',
+                    'after:absolute after:inset-x-0 after:bottom-[2px] after:h-px after:bg-stone-400',
+                    'after:translate-y-[2px] after:opacity-0',
+                    'after:transition-[opacity,transform] after:duration-100 after:ease-out-strong',
+                    'group-hover:after:translate-y-0 group-hover:after:opacity-100',
+                  )}>
+                    {row.name}
+                  </span>
+
                 </div>
               </DataCell>
 
-              <DataCell {...cell} colId="name" sticky="left" stickyOffset={NAME_STICKY_LEFT}>
-                <div className="relative flex min-w-0 flex-1 items-center gap-2">
-                  {/* No avatar — the design shows name + muted company only.
-                      Both labels can shrink, so a long pair truncates as
-                      "James Foulkstruthseek… K…" rather than one pushing the
-                      other out of the cell. */}
-                  <span className="text-content-primary min-w-0 truncate font-medium group-hover:underline">
-                    {row.name}
-                  </span>
-                  <span className="text-content-tertiary min-w-0 truncate text-xs">
-                    {row.companyLabel}
-                  </span>
-
-                  {/* Open-record affordance, revealed on row hover. LinkedIn
-                      lives in its own column — it does not belong here. */}
-                  {/* Absolute, not in flow: revealing it must not re-truncate
-                      the name and company beside it. */}
-                  <button
-                    type="button"
-                    aria-label={`Open ${row.name}`}
-                    className={cn(
-                      'border-border-tertiary bg-card text-content-tertiary hover:text-content-primary',
-                      'hover:border-border focus-visible:ring-ring/50 flex size-[22px] shrink-0',
-                      'cursor-pointer items-center justify-center rounded-[5px] border outline-none',
-                      'focus-visible:ring-[3px]',
-                      'pointer-events-none absolute top-1/2 right-0 -translate-y-1/2 opacity-0',
-                      'transition-[opacity,transform] duration-150 ease-out',
-                      'group-hover:pointer-events-auto group-hover:opacity-100',
-                      'focus-visible:pointer-events-auto focus-visible:opacity-100',
-                    )}
-                  >
-                    <OpenIcon />
-                  </button>
-                </div>
+              <DataCell {...cell} colId="company_name">
+                {row.companyName ? <TextValue>{row.companyName}</TextValue> : <EmptyValue />}
               </DataCell>
 
               <DataCell {...cell} colId="title">
@@ -280,21 +381,16 @@ export function DataTable({ query = '' }: { query?: string }) {
               <DataCell {...cell} colId="email">
                 {row.email ? (
                   <a href={`mailto:${row.email}`}
-                    className="focus-visible:ring-ring/50 truncate rounded-sm outline-none hover:underline focus-visible:ring-[3px]">
+                    className="focus-visible:ring-ring/50 overflow-hidden text-clip rounded-sm outline-none hover:underline focus-visible:ring-[3px]">
                     {row.email}
                   </a>
                 ) : <EmptyValue />}
               </DataCell>
 
-              <DataCell {...cell} colId="company_name">
-                {row.companyName ? <TextValue>{row.companyName}</TextValue> : <EmptyValue />}
-              </DataCell>
-
               <DataCell {...cell} colId="company_domain">
                 {row.companyDomain ? (
-                  <div className="relative flex w-full min-w-0 items-center gap-1.5">
-                    <img alt="" aria-hidden="true" className="size-4 shrink-0 rounded object-contain"
-                      src={faviconUrl(row.companyDomain)} />
+                  <div className="relative flex w-full min-w-0 items-center gap-[9px]">
+                    <Favicon domain={row.companyDomain} />
                     <LinkValue href={row.companyDomain}>{row.companyDomain}</LinkValue>
                   </div>
                 ) : <EmptyValue />}
@@ -303,38 +399,56 @@ export function DataTable({ query = '' }: { query?: string }) {
               <DataCell {...cell} colId="linkedin_url">
                 {row.linkedinUrl ? (
                   <a href={`https://${row.linkedinUrl}`} target="_blank" rel="noreferrer"
-                    className="focus-visible:ring-ring/50 flex w-full min-w-0 items-center gap-1.5 rounded-sm outline-none hover:underline focus-visible:ring-[3px]">
-                    <LinkedInBadge className="size-[18px]" />
-                    <span className="truncate">{linkedinPath(row.linkedinUrl)}</span>
+                    className="focus-visible:ring-ring/50 flex w-full min-w-0 items-center gap-1 rounded-sm text-stone-600 outline-none hover:underline focus-visible:ring-[3px]">
+                    <LinkedInBadge className="size-4" />
+                    <span className="overflow-hidden text-clip">{linkedinPath(row.linkedinUrl)}</span>
                   </a>
                 ) : <EmptyValue />}
               </DataCell>
 
-              <DataCell {...cell} colId="contact_2">
-                <TextValue>{row.name}</TextValue>
-              </DataCell>
-
-              {/* chip and glyph are independent: either, both, or neither. */}
+              {/* Three states, as in the design: a value once enrichment has
+                  run, a Run button when it has not, and a pending chip while
+                  it is in flight. `enrichTag` picks chip vs plain text for the
+                  value; `enrichGlyph` puts the play glyph in the Run button. */}
               <DataCell {...cell} colId={AI_COL}>
                 <div className="relative flex w-full min-w-0 items-center gap-2">
-                  {!row.department ? (
-                    <EmptyValue />
+                  {running.has(row.id) ? (
+                    <span className="motion-safe:animate-value-in flex min-w-0">
+                      <Tag tone="pending" pulse>Running…</Tag>
+                    </span>
+                  ) : !row.department ? (
+                    /* The frame leaves an un-enriched Department blank until
+                       the row is hovered, then reveals the chip — the same
+                       pattern as the open-record and re-run buttons below.
+                       Opacity only: laying it out on hover would shift the
+                       cell's contents. */
+                    <span className={cn(
+                      'shrink-0 pointer-events-none opacity-0 transition-opacity duration-150 ease-out',
+                      'group-hover:pointer-events-auto group-hover:opacity-100',
+                      'focus-within:pointer-events-auto focus-within:opacity-100',
+                    )}>
+                      <RunButton label="Enrich" onClick={() => run([row.id])} />
+                    </span>
                   ) : config.enrichTag ? (
-                    <Tag tone="pending">
-                      {config.enrichGlyph && <PlayCircleIcon className="shrink-0" />}
-                      {row.department}
-                    </Tag>
+                    /* The rise is for values that just landed. Rows that were
+                       seeded enriched already animate with the row — running
+                       it again there would double the motion. */
+                    <span className={cn('flex min-w-0',
+                      enriched[row.id] && 'motion-safe:animate-value-in')}>
+                      <Tag tone="done">{row.department}</Tag>
+                    </span>
                   ) : (
-                    <div className="text-content-disabled flex min-w-0 flex-1 items-center gap-x-2 text-xs">
-                      {config.enrichGlyph && <PlayCircleIcon />}
-                      <span className="truncate">{row.department}</span>
-                    </div>
+                    <span className={cn('min-w-0 flex-1 overflow-hidden text-clip',
+                      enriched[row.id] && 'motion-safe:animate-value-in')}>
+                      {row.department}
+                    </span>
                   )}
 
                   {/* Re-run enrichment — revealed at the cell's right edge on hover. */}
-                  {row.department && (
+                  {row.department && !running.has(row.id) && (
                     <button
                       type="button"
+                      onClick={() => run([row.id])}
                       aria-label={`Re-run enrichment for ${row.name}`}
                       className={cn(
                       'border-border-tertiary bg-card text-content-tertiary hover:text-content-primary',
@@ -356,7 +470,7 @@ export function DataTable({ query = '' }: { query?: string }) {
               {/* Trailing spacer: keeps the vertical separator, drops the row
                   rules so the column reads as blank rather than ruled. */}
               <DataCell {...cell} colId="addColumn" sticky="right" stickyOffset="0px"
-                className="border-l border-b-0" />
+                className="border-l border-b-0 border-stone-200 bg-white" />
             </tr>
           )
         })}
@@ -365,34 +479,38 @@ export function DataTable({ query = '' }: { query?: string }) {
       {config.showFooter && (
         <tfoot>
           <tr>
-            <FooterCell colId="select" sticky="left" stickyOffset="0px" className="px-0">
-              <span className="sr-only">Totals</span>
-            </FooterCell>
-            <FooterCell colId="name" sticky="left" stickyOffset={NAME_STICKY_LEFT}>
-              <Stat value={rows.length} label="count" />
+            {/* The design carries only two statistics — Names and Links — and
+                leaves every other column as an em-dash. */}
+            <FooterCell colId="name" sticky="left" stickyOffset="0px" className="pl-4">
+              <Stat value={rows.length} label="Names" />
+              {/* Selection outlives filtering, so a bare count sits next to a
+                  smaller row count and reads as a contradiction. Say both when
+                  they differ. */}
               {selected.size > 0 && (
-                <span className="text-accent-select"> · {selected.size} selected</span>
+                <span className="text-accent-select">
+                  {' · '}
+                  {visibleSelected === selected.size
+                    ? `${selected.size} selected`
+                    : `${visibleSelected} of ${selected.size} selected`}
+                </span>
               )}
             </FooterCell>
+            <FooterCell colId="company_name">—</FooterCell>
             <FooterCell colId="title">—</FooterCell>
-            <FooterCell colId="email">
-              <Stat value={rows.filter((c) => c.email).length} label="emails" />
-            </FooterCell>
-            <FooterCell colId="company_name">
-              <Stat value={new Set(rows.map((c) => c.companyName)).size} label="companies" />
-            </FooterCell>
+            <FooterCell colId="email">—</FooterCell>
             <FooterCell colId="company_domain">—</FooterCell>
             <FooterCell colId="linkedin_url">
-              <Stat value={rows.filter((c) => c.linkedinUrl).length} label="links" />
+              <Stat value={rows.filter((c) => c.linkedinUrl).length} label="Links" />
             </FooterCell>
-            <FooterCell colId="contact_2">—</FooterCell>
-            <FooterCell colId={AI_COL}>
-              <Stat
-                value={`${rows.length ? Math.round((rows.filter((c) => c.department).length / rows.length) * 100) : 0}%`}
-                label="ready"
+            <FooterCell colId={AI_COL} className="px-2">
+              <RunButton
+                label="Enrich All"
+                onClick={() => run(unenriched)}
+                disabled={unenriched.length === 0}
               />
             </FooterCell>
-            <FooterCell colId="addColumn" sticky="right" stickyOffset="0px" className="border-l" />
+            <FooterCell colId="addColumn" sticky="right" stickyOffset="0px"
+              className="border-l border-stone-200 bg-white" />
           </tr>
         </tfoot>
       )}

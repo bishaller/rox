@@ -97,15 +97,25 @@ function ViewTab({ label, shared, active }: { label: string; shared?: boolean; a
       aria-current={active ? 'true' : undefined}
       className={cn(
         'group/tab flex h-[32px] max-w-[240px] shrink-0 cursor-pointer items-center gap-1.5',
-        'rounded-lg px-3 text-[14px] whitespace-nowrap transition-colors outline-none',
+        'rounded-lg border px-3 text-[14px] whitespace-nowrap outline-none',
+        'transition-[background-color,border-color,color] duration-150 ease-out-strong',
         'focus-visible:ring-ring/50 focus-visible:ring-[3px]',
+        /* Border always present, colour-only change — see the note on the
+           People tabs: dropping it narrowed the active pill by 2px. */
         active
-          ? 'bg-accent-select/10 text-accent-select font-medium'
-          : 'border-button-border text-content-primary hover:bg-os-gray-100 border bg-white',
+          ? 'bg-accent-select/10 text-accent-select border-transparent font-medium'
+          : 'border-button-border text-content-primary hover:bg-os-gray-100 bg-white',
       )}
     >
       {shared && <SharedIcon />}
-      <span className="min-w-0 truncate">{label}</span>
+      <span className="text-steady" data-text={label}>
+        <span className={cn(
+          'block truncate origin-center transition-transform duration-150 ease-out-strong',
+          'group-active/tab:scale-[0.97]',
+        )}>
+          {label}
+        </span>
+      </span>
       <ChevronDownIcon className={cn('shrink-0', active ? 'opacity-80' : 'text-content-tertiary')} />
     </button>
   )

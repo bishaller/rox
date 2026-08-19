@@ -27,7 +27,8 @@ export type TableConfig = {
   showRowNumber: boolean
   showCheckbox: boolean
 
-  /* Enrichment column. Both on = the glyph inside the chip. Both off = plain text. */
+  /* Enrichment column. `enrichTag` renders a run's result as a chip rather
+     than plain text; `enrichGlyph` puts the play glyph inside the Run button. */
   enrichTag: boolean
   enrichGlyph: boolean
 
@@ -46,8 +47,22 @@ export const ROW_HEIGHTS: Record<Density, number> = {
   comfortable: 56,
 }
 
-/** Named bundles. `rox` reproduces the live app as captured. */
+/**
+ * Named bundles. `figma` reproduces the design frame this page was built from;
+ * `rox` reproduces the live app as captured (same treatment, no footer).
+ */
 export const PRESETS: Record<string, { label: string; config: TableConfig }> = {
+  figma: {
+    label: 'Figma (People > Contacts)',
+    config: {
+      /* 14px, not 13 — every header label measured ~9% narrow at 13. */
+      density: 'default', fontSize: 14, gridH: true, gridV: true,
+      /* The frame has no row numbers — the select gutter is gone and the
+         checkbox lives in the Contact cell, always visible. */
+      showRowNumber: false, showCheckbox: true, enrichTag: false, enrichGlyph: true,
+      striped: false, stickyColumns: true, showFooter: true, boxed: false, motion: true,
+    },
+  },
   rox: {
     label: 'Rox (as captured)',
     config: {
@@ -98,9 +113,12 @@ export const PRESETS: Record<string, { label: string; config: TableConfig }> = {
   },
 }
 
-export const DEFAULT_PRESET = 'enhanced'
-/* v2: the shape changed from exclusive enums to independent booleans. */
-const STORAGE_KEY = 'rox.dev.tableConfig.v2'
+/* The app opens on the design, not on a variant of it. */
+export const DEFAULT_PRESET = 'figma'
+/* v5: frame 3747:3553 changed the column model (no select gutter) and the type
+   scale (14px, not 13). A persisted earlier value would quietly reinstate both,
+   so the key moves with the design rather than with the code shape. */
+const STORAGE_KEY = 'rox.dev.tableConfig.v5'
 
 type Ctx = {
   config: TableConfig

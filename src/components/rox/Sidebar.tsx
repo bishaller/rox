@@ -18,16 +18,35 @@ function NavItem({
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'flex h-[38px] w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5',
-        'text-[15px] transition-colors outline-none',
+        'group flex h-[38px] w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5',
+        'text-[15px] outline-none',
+        'transition-[background-color,border-color,color] duration-150 ease-out-strong',
         'focus-visible:ring-ring/50 focus-visible:ring-[3px]',
+        /* Border always present, colour-only change — otherwise the icon and
+           label step 1px inward the moment the item becomes current. */
+        'border border-transparent',
+        /* The design marks the current page with a white card and a violet
+           hairline, not a filled pill — the label stays at normal contrast and
+           only the glyph takes the accent. */
         active
-          ? 'bg-os-gray-700 font-medium text-white'
+          ? 'bg-card border-violet-300 text-content-primary font-medium'
           : 'text-content-secondary hover:bg-os-gray-100',
       )}
     >
-      <span className="flex size-[18px] shrink-0 items-center justify-center">{icon}</span>
-      <span className="truncate">{label}</span>
+      <span className={cn(
+        'flex size-[18px] shrink-0 items-center justify-center',
+        active && 'text-violet-500',
+      )}>
+        {icon}
+      </span>
+      <span className="text-steady" data-text={label}>
+        <span className={cn(
+          'block truncate origin-center transition-transform duration-150 ease-out-strong',
+          'group-active:scale-[0.97]',
+        )}>
+          {label}
+        </span>
+      </span>
     </button>
   )
 }
