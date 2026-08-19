@@ -260,6 +260,7 @@ export function DataTable({
 }: DataTableProps) {
   const { config } = useTableConfig()
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const tableRef = useRef<HTMLTableElement>(null)
 
   /* Enrichment results layered over the seed data, so `contacts` stays the
      as-designed starting state and a reload returns to it. */
@@ -291,6 +292,30 @@ export function DataTable({
   }, [enrichment])
 
   const minWidth = useMemo(() => columns.reduce((n, c) => n + c.width, 0), [columns])
+
+  /* When an enrichment column (or a pulled-out field column) lands beyond
+     the right edge, bring it into view — data filling in off-screen reads as
+     nothing happening. Scrolls right only; never yanks the user back. */
+  const enrichColId = enrichment?.def.id ?? null
+  const enrichColCount = enrichment ? 1 + enrichment.addedFields.length : 0
+  useEffect(() => {
+    if (!enrichColId) return
+    const table = tableRef.current
+    const scroller = table?.parentElement
+    if (!table || !scroller) return
+    const cells = table.querySelectorAll<HTMLElement>('thead th[data-col-id^="enrich"]')
+    const last = cells[cells.length - 1]
+    if (!last) return
+    /* The sticky Add-column rail covers the scrollport's right edge, so the
+       column must clear it, not just the edge. */
+    const rail = COLUMNS[COLUMNS.length - 1].width
+    const target = last.offsetLeft + last.offsetWidth - (scroller.clientWidth - rail) + 8
+    if (target > scroller.scrollLeft) {
+      const smooth = config.motion &&
+        !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      scroller.scrollTo({ left: target, behavior: smooth ? 'smooth' : 'auto' })
+    }
+  }, [enrichColId, enrichColCount, config.motion])
 
   /**
    * Mock enrichment. `stagger` spaces a Run All out so the column fills in
@@ -360,6 +385,7 @@ export function DataTable({
     /* `border-separate` + zero spacing keeps per-cell borders while allowing
        position: sticky, which `border-collapse: collapse` breaks. */
     <table
+      ref={tableRef}
       data-motion={config.motion ? 'on' : 'off'}
       className="w-full table-fixed border-separate border-spacing-0"
       style={{ minWidth }}
