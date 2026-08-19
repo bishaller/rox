@@ -1,142 +1,152 @@
-import { useState } from 'react'
+import { type CSSProperties, useState } from 'react'
 import { cn } from '@/lib/cn'
 import {
-  ACCOUNTS_TABLE_WIDTH, ACCOUNT_COLUMNS, ACCOUNT_HEADER_HEIGHT, ACCOUNT_ROW_HEIGHT,
-  accounts,
+  ACCOUNT_COLUMNS, ACCOUNT_HEADER_HEIGHT, ACCOUNT_ROW_HEIGHT, accounts,
 } from '@/data/accounts'
-import { faviconUrl } from '@/data/contacts'
+import { brandMark } from '@/data/contacts'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Sidebar } from '@/components/rox/Sidebar'
 import { AddColumnModal } from '@/components/rox/AddColumnModal'
 import {
-  ChevronDownIcon, EllipsisIcon, PlusIcon, SearchIcon, SortIcon,
+  ArrowUpArrowDownIcon, CommentIcon, ExternalLinkIcon, FunnelIcon,
+  PlusCircleIcon, PlusIcon, SearchIcon,
 } from '@/components/rox/icons'
-import {
-  FindCompanyJobOpeningsIcon, NewManualColumnsIcon,
-} from '@/components/rox/modalIcons'
+import avatarBen from '@/assets/avatar-ben.png'
+import avatarBishal from '@/assets/avatar-bishal.png'
 
 /* ────────────────────────────────────────────────────────────────────────────
- * Accounts, rebuilt from the screenshot. Measured at a verified 1.1574 scale
- * (the 212px sidebar is 246 image px), so the numbers below are real values.
+ * Accounts, built to frame 3779:3653 — the same design language as the
+ * redesigned People page. One 48px top band (20px title, raised Add Account,
+ * comment glyph), one row of view pills with the toolbar on its right, and a
+ * grid that runs 48 · 230 · 160 with the Add-column rail absorbing the rest of
+ * the panel.
  *
- * Two things here differ from the People page and are deliberate, not drift:
- *   • the top bar, toolbar and tab strip sit on the warm grey app background;
- *     white begins at the table body, not at a rounded panel.
- *   • rows are 45 high, and the active view tab is a soft blue pill with blue
- *     text rather than the solid indigo People uses.
+ * Two things the frame rules differently from People and are kept: the number
+ * gutter survives here (People folded its checkbox into the Contact cell), and
+ * the search box sits on the grey stone-100 ground rather than white-in-border.
  * ──────────────────────────────────────────────────────────────────────────── */
 
-const CONTROL =
-  'flex h-[32px] shrink-0 cursor-pointer items-center gap-2 rounded-lg px-3 ' +
-  'text-[14px] whitespace-nowrap transition-colors outline-none ' +
+/* Top-bar actions share the People TopBar's box: 36 high, press dip, only the
+   primary action raised. */
+const ACTION =
+  'flex h-[36px] shrink-0 cursor-pointer items-center justify-center rounded-[8px] ' +
+  'text-[14px] font-medium whitespace-nowrap outline-none ' +
+  'transition-[background-color,border-color,color,transform] duration-150 ease-out-strong ' +
+  'active:scale-[0.97] ' +
   'focus-visible:ring-ring/50 focus-visible:ring-[3px]'
-const BORDERED = 'border-button-border text-content-primary hover:bg-os-gray-100 border bg-white'
 
-function DashedCircle() {
+/* Filter and Sort match the People toolbar: icon-only, 32 high, no border. */
+const ICON_CONTROL =
+  'relative flex h-[32px] shrink-0 cursor-pointer items-center justify-center rounded-[8px] px-2 ' +
+  'text-stone-600 outline-none hover:bg-stone-100 ' +
+  'transition-[background-color,color,transform] duration-150 ease-out-strong active:scale-[0.95] ' +
+  'focus-visible:ring-ring/50 focus-visible:ring-[3px]'
+
+function ClearIcon() {
   return (
-    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" className="size-3.5 shrink-0">
-      <circle cx="8" cy="8" r="6.1" stroke="currentColor" strokeWidth="1.4" strokeDasharray="3.4 2.8" />
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true" className="size-3.5">
+      <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   )
 }
 
-function ListIcon() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" className="size-3.5 shrink-0">
-      <path d="M2.5 4h11M2.5 8h11M2.5 12h7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-function FunnelIcon() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" className="size-3.5 shrink-0">
-      <path d="M2.5 3.5h11l-4.2 5v4l-2.6 1.4V8.5z" stroke="currentColor" strokeWidth="1.4"
-        strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-/** The three density toggles pinned to the toolbar's right edge. */
-function ViewModeIcon({ rows }: { rows: number }) {
-  return (
-    <svg viewBox="0 0 20 16" fill="none" aria-hidden="true" className="size-4">
-      <rect x="1.6" y="2.2" width="16.8" height="11.6" rx="2.2" stroke="currentColor" strokeWidth="1.4" />
-      {Array.from({ length: rows }, (_, i) => (
-        <path key={i} d={`M1.6 ${5.5 + i * (8.4 / rows)}h16.8`} stroke="currentColor" strokeWidth="1.3" />
-      ))}
-    </svg>
-  )
-}
-
-const VIEWS: { label: string; shared?: boolean }[] = [
+/** Saved views, as in the frame — two of them carrying a sharer's photo. */
+const VIEWS: { label: string; avatar?: string }[] = [
   { label: 'Default' },
-  { label: 'Example' },
-  { label: 'New view' },
-  { label: 'Philips RHT Sales Play', shared: true },
-  { label: 'test-alexh-orgwide', shared: true },
-  { label: 'Customer onboarding dashboard', shared: true },
-  { label: '[DCG] Datacenter Goldrush Sales Play', shared: true },
-  { label: 'Rox Customer List', shared: true },
+  { label: 'My Lists' },
+  { label: 'Philips RHT sales play', avatar: avatarBen },
+  { label: 'Customer onboarding dashboard', avatar: avatarBishal },
 ]
 
-function SharedIcon() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" className="size-3.5 shrink-0">
-      <circle cx="6.2" cy="6" r="2.2" stroke="currentColor" strokeWidth="1.3" />
-      <path d="M2.4 12.6a3.9 3.9 0 0 1 7.6 0M10.6 4.2a2 2 0 0 1 0 3.6M11.6 9.6c1.2.4 2 1.6 2 3"
-        stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-function ViewTab({ label, shared, active }: { label: string; shared?: boolean; active?: boolean }) {
+/**
+ * A view pill — the People tab treatment: rounded-full, stone ground for the
+ * active view, no chevron. The label is width-steady so selecting a view does
+ * not shuffle the pills beside it.
+ */
+function ViewTab({
+  label, avatar, active, onSelect,
+}: {
+  label: string
+  avatar?: string
+  active?: boolean
+  onSelect: () => void
+}) {
   return (
     <button
       type="button"
       aria-current={active ? 'true' : undefined}
+      onClick={onSelect}
       className={cn(
-        'group/tab flex h-[32px] max-w-[240px] shrink-0 cursor-pointer items-center gap-1.5',
-        'rounded-lg border px-3 text-[14px] whitespace-nowrap outline-none',
+        'group/tab flex h-[32px] max-w-[300px] shrink-0 cursor-pointer items-center',
+        'rounded-full border px-2.5 text-[14px] whitespace-nowrap outline-none select-none',
         'transition-[background-color,border-color,color] duration-150 ease-out-strong',
         'focus-visible:ring-ring/50 focus-visible:ring-[3px]',
-        /* Border always present, colour-only change — see the note on the
-           People tabs: dropping it narrowed the active pill by 2px. */
+        /* Border always present, colour-only change — dropping it narrowed the
+           active pill by 2px and shifted every pill after it. */
         active
-          ? 'bg-accent-select/10 text-accent-select border-transparent font-medium'
-          : 'border-button-border text-content-primary hover:bg-os-gray-100 bg-white',
+          ? 'border-stone-400 bg-stone-200 font-medium text-stone-800'
+          : 'border-stone-200 bg-white text-stone-800',
       )}
     >
-      {shared && <SharedIcon />}
-      <span className="text-steady" data-text={label}>
-        <span className={cn(
-          'block truncate origin-center transition-transform duration-150 ease-out-strong',
-          'group-active/tab:scale-[0.97]',
-        )}>
-          {label}
+      {/* Everything inside the pill takes the press together; the chrome holds
+          still, and scale does not affect layout. */}
+      <span className={cn(
+        'flex min-w-0 origin-center items-center gap-1.5',
+        'transition-transform duration-150 ease-out-strong group-active/tab:scale-[0.97]',
+      )}>
+        {avatar && (
+          <img src={avatar} alt="" aria-hidden="true"
+            className="size-4 shrink-0 rounded-full object-cover" />
+        )}
+        <span className="text-steady" data-text={label}>
+          <span className="block truncate">{label}</span>
         </span>
       </span>
-      <ChevronDownIcon className={cn('shrink-0', active ? 'opacity-80' : 'text-content-tertiary')} />
     </button>
   )
 }
 
-/** Grey header cell. The trailing Add column cell is white — see the capture. */
+/**
+ * The company mark in the Domain column — the frame draws the brand lettermark
+ * (19px, brand ground, white semibold), not the live favicon.
+ */
+function BrandMark({ domain }: { domain: string }) {
+  const { label, className } = brandMark(domain)
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        'flex size-[19px] shrink-0 items-center justify-center rounded-[4px]',
+        'leading-none font-semibold tracking-tight text-white',
+        /* Two letters in a 19px box need the step down or they touch the
+           edges — the frame sets `CB` at 8 and `P` at 10. */
+        label.length > 1 ? 'text-[8px]' : 'text-[10px]',
+        className,
+      )}
+    >
+      {label}
+    </span>
+  )
+}
+
+/**
+ * Header cell. The frame rules the header top and bottom in stone-200 and its
+ * verticals in the lighter --color-line, and pins it to the scroller's top.
+ */
 function HeaderCell({
-  width, children, className, sticky,
+  children, className,
 }: {
-  width: number
   children?: React.ReactNode
   className?: string
-  sticky?: boolean
 }) {
   return (
     <th
       scope="col"
-      style={{ width, height: ACCOUNT_HEADER_HEIGHT, ...(sticky ? { position: 'sticky', left: 0, zIndex: 20 } : null) }}
+      style={{ height: ACCOUNT_HEADER_HEIGHT, position: 'sticky', top: 0, zIndex: 30 }}
       className={cn(
-        'bg-card border-border-tertiary border-t border-r border-b px-3 text-left',
-        'text-[13px] font-medium whitespace-nowrap',
+        'text-ink bg-white px-3 text-left text-[14px] font-medium whitespace-nowrap',
+        'border-t border-b border-t-stone-200 border-b-stone-200',
+        'border-r-line border-r',
         className,
       )}
     >
@@ -146,24 +156,33 @@ function HeaderCell({
 }
 
 function Cell({
-  width, children, className, sticky,
+  children, className, selected,
 }: {
-  width: number
   children?: React.ReactNode
   className?: string
-  sticky?: boolean
+  selected?: boolean
 }) {
   return (
     <td
-      style={{ width, height: ACCOUNT_ROW_HEIGHT, ...(sticky ? { position: 'sticky', left: 0, zIndex: 10 } : null) }}
+      style={{ height: ACCOUNT_ROW_HEIGHT }}
       className={cn(
-        'bg-card border-border-tertiary relative border-r border-b px-3 align-middle',
-        'after:pointer-events-none after:absolute after:inset-0 group-hover:after:bg-overlay-secondary',
-        'after:transition-colors after:duration-150',
+        'group/cell text-ink bg-card relative px-3 align-middle',
+        'border-b-line border-r-line border-r border-b',
+        'after:pointer-events-none after:absolute after:inset-0 group-hover:after:bg-overlay-row-hover',
+        'transition-colors duration-150 after:transition-colors after:duration-150',
+        selected && 'bg-accent-select/5',
         className,
       )}
     >
-      {children}
+      {/* The entrance animation lives on this wrapper, never on the <td>: a
+          transform there would create a stacking surprise under the sticky
+          header. */}
+      <div className={cn(
+        'flex h-full w-full min-w-0 items-center overflow-hidden',
+        'motion-safe:animate-row-in [animation-delay:calc(var(--row-i,0)*14ms)]',
+      )}>
+        {children}
+      </div>
     </td>
   )
 }
@@ -172,6 +191,7 @@ export function Accounts({ onNavigate }: { onNavigate?: (page: string) => void }
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [addColumnOpen, setAddColumnOpen] = useState(false)
+  const [activeView, setActiveView] = useState(0)
 
   const q = query.trim().toLowerCase()
   const rows = q
@@ -201,112 +221,86 @@ export function Accounts({ onNavigate }: { onNavigate?: (page: string) => void }
     <div className="bg-app-bg flex h-full w-full overflow-hidden">
       <Sidebar active="Accounts" onNavigate={onNavigate} />
 
-      {/* Same shell as People: a rounded white panel floating on the app
-          background. The capture showed this page on the bare grey ground, but
-          the two pages are meant to read as one product. */}
+      {/* Main panel — rounded card floating on the app background, as on People. */}
       <div className="flex min-w-0 flex-1 flex-col py-3 pr-3">
         <div className="bg-card border-card-border shadow-main-panel flex min-h-0 flex-1 flex-col overflow-hidden rounded-[14px] border">
-        {/* ── top bar — 70 high ──────────────────────────────────────────── */}
-        <header className="flex h-[70px] shrink-0 items-center justify-between px-4">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <span className="bg-accent-pink/10 flex size-[30px] shrink-0 items-center justify-center rounded-lg">
-              <FindCompanyJobOpeningsIcon className="text-accent-pink size-[17px]" />
-            </span>
-            <h1 className="text-content-primary truncate text-[22px] font-medium">Accounts</h1>
-          </div>
+        {/* ── top bar — 48 total: a 36px action row set 12px down ─────────── */}
+        <header className="flex shrink-0 items-center justify-between pt-3 pr-3 pl-4">
+          {/* Same inset as the People breadcrumb: the title's 6px pad starts
+              on the container's edge, aligning it with the first view pill. */}
+          <h1 className="text-ink flex h-[36px] min-w-0 items-center truncate px-1.5 text-[20px] font-medium tracking-normal">
+            Accounts
+          </h1>
 
           <div className="flex shrink-0 items-center gap-2">
+            {/* The only raised control on the screen. */}
             <button
               type="button"
-              onClick={() => setAddColumnOpen(true)}
-              className="bg-secondary text-secondary-foreground hover:bg-secondary-hover focus-visible:ring-ring/50 flex h-[36px] cursor-pointer items-center rounded-lg px-3 text-[14px] font-medium transition-colors outline-none focus-visible:ring-[3px]"
+              className={cn(ACTION,
+                'border-line-strong shadow-raised border bg-white px-3 text-stone-800 hover:bg-stone-50')}
             >
-              Add column
+              Add Account
             </button>
-            <button
-              type="button"
-              className="border-button-border bg-button text-foreground shadow-button hover:bg-button-hover focus-visible:ring-ring/50 flex h-[36px] cursor-pointer items-center gap-1.5 rounded-lg border px-3 text-[14px] font-medium transition-colors outline-none focus-visible:ring-[3px]"
-            >
-              Add account
-              <ChevronDownIcon className="text-content-tertiary" />
-            </button>
-            <button
-              type="button"
-              aria-label="Chat"
-              className="border-button-border text-content-secondary hover:bg-os-gray-100 focus-visible:ring-ring/50 flex size-[36px] cursor-pointer items-center justify-center rounded-full border bg-white outline-none focus-visible:ring-[3px]"
-            >
-              <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="size-4">
-                <path d="M17.2 9.6a6.6 6 0 0 1-6.6 6 8 8 0 0 1-3-.6l-3.8 1.2 1.1-3.1a5.8 5.8 0 0 1-1.1-3.5 6.6 6 0 0 1 6.8-6 6.6 6 0 0 1 6.6 6z"
-                  stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
-              </svg>
+
+            {/* Borderless — it reads as an icon affordance, not a button. */}
+            <button type="button" aria-label="Chat"
+              className={cn(ACTION, 'size-[36px] shrink-0 p-0 text-stone-600 hover:bg-stone-100')}>
+              <CommentIcon className="shrink-0" />
             </button>
           </div>
         </header>
 
-        {/* Same rhythm as People — one stack, gap-3, pb-3. Accounts puts the
-            toolbar above the tabs; People is the other way round. */}
-        <div className="flex shrink-0 flex-col gap-3 pb-3">
-        <div className="flex shrink-0 items-center gap-2 px-4">
-          <label className={cn(CONTROL, BORDERED, 'w-[190px] gap-2 px-2.5')}>
-            <SearchIcon className="text-content-tertiary shrink-0" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search..."
-              aria-label="Search accounts"
-              className="placeholder:text-content-tertiary min-w-0 flex-1 bg-transparent outline-none"
-            />
-          </label>
-
-          <button type="button" className={cn(CONTROL, BORDERED)}>
-            <DashedCircle /> All Sources <ChevronDownIcon className="text-content-tertiary" />
-          </button>
-          <button type="button" className={cn(CONTROL, BORDERED)}>
-            <ListIcon /> Flat <ChevronDownIcon className="text-content-tertiary" />
-          </button>
-          <button type="button" className={cn(CONTROL, BORDERED)}>
-            <FunnelIcon /> Filter <ChevronDownIcon className="text-content-tertiary" />
-          </button>
-          <button type="button" className={cn(CONTROL, BORDERED)}>
-            <SortIcon className="size-3.5 shrink-0" /> Sort
-            <ChevronDownIcon className="text-content-tertiary" />
-          </button>
-
-          <div className="ml-auto flex shrink-0 items-center gap-1">
-            {[1, 2, 3].map((rows_) => (
-              <button
-                key={rows_}
-                type="button"
-                aria-label={`Row density ${rows_}`}
-                className="text-content-tertiary hover:bg-os-gray-100 hover:text-content-primary focus-visible:ring-ring/50 flex size-[30px] cursor-pointer items-center justify-center rounded-md outline-none focus-visible:ring-[3px]"
-              >
-                <ViewModeIcon rows={rows_} />
-              </button>
+        {/* ── one 48px band: saved views left, search and glyphs right ────── */}
+        <div className="flex shrink-0 items-center justify-between gap-3 px-4 pt-4">
+          <div className="flex min-w-0 shrink items-center gap-1">
+            {VIEWS.map((v, i) => (
+              <ViewTab key={v.label} label={v.label} avatar={v.avatar}
+                active={i === activeView} onSelect={() => setActiveView(i)} />
             ))}
+            <button
+              type="button"
+              aria-label="Add view"
+              className="focus-visible:ring-ring/50 flex size-[32px] shrink-0 cursor-pointer items-center justify-center rounded-full text-stone-600 outline-none transition-[background-color,transform] duration-150 ease-out-strong hover:bg-stone-100 active:scale-[0.95] focus-visible:ring-[3px]"
+            >
+              <PlusIcon className="size-3.5" />
+            </button>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-1">
+            {/* The frame sits this search on the grey stone-100 ground, not
+                white-in-border as on People; the border only exists focused. */}
+            <div data-slot="input-group"
+              className="focus-within:border-ring flex h-[32px] w-[289px] items-center gap-[5px] rounded-[8px] border border-transparent bg-stone-100 px-2">
+              <SearchIcon className="size-4 shrink-0 text-stone-400" />
+              <input
+                data-slot="input-group-control"
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search accounts..."
+                aria-label="Search accounts"
+                className="text-ink min-w-0 flex-1 bg-transparent text-[14px] outline-none placeholder:text-stone-400 [&::-webkit-search-cancel-button]:hidden"
+              />
+              {query && (
+                <button type="button" onClick={() => setQuery('')} aria-label="Clear search"
+                  className="shrink-0 cursor-pointer text-stone-400 hover:text-stone-800">
+                  <ClearIcon />
+                </button>
+              )}
+            </div>
+
+            <button type="button" aria-label="Filter" className={ICON_CONTROL}>
+              <FunnelIcon className="size-4" />
+            </button>
+            <button type="button" aria-label="Sort" className={ICON_CONTROL}>
+              <ArrowUpArrowDownIcon className="size-4" />
+            </button>
           </div>
         </div>
 
-        {/* ── view tabs ──────────────────────────────────────────────────── */}
-        <div className="flex shrink-0 items-center gap-1.5 overflow-hidden px-4">
-          {VIEWS.map((v, i) => (
-            <ViewTab key={v.label} label={v.label} shared={v.shared} active={i === 0} />
-          ))}
-          <button
-            type="button"
-            aria-label="Add view"
-            className="text-content-tertiary hover:bg-os-gray-100 focus-visible:ring-ring/50 flex size-[32px] shrink-0 cursor-pointer items-center justify-center rounded-lg outline-none focus-visible:ring-[3px]"
-          >
-            <PlusIcon />
-          </button>
-        </div>
-        </div>
-
-        {/* ── grid ───────────────────────────────────────────────────────── */}
-        <div className="bg-card min-h-0 flex-1 overflow-auto">
-          <table
-            className="table-fixed border-separate border-spacing-0"
-            style={{ width: ACCOUNTS_TABLE_WIDTH }}
-          >
+        {/* ── grid — edge to edge; the Add-column rail absorbs the rest ───── */}
+        <div className="bg-card min-h-0 flex-1 overflow-auto pt-4 pb-4">
+          <table className="w-full table-fixed border-separate border-spacing-0">
             <caption className="sr-only">
               Accounts. {rows.length} of {accounts.length} rows shown.
             </caption>
@@ -314,13 +308,13 @@ export function Accounts({ onNavigate }: { onNavigate?: (page: string) => void }
               <col style={{ width: ACCOUNT_COLUMNS.select }} />
               <col style={{ width: ACCOUNT_COLUMNS.name }} />
               <col style={{ width: ACCOUNT_COLUMNS.domain }} />
-              <col style={{ width: ACCOUNT_COLUMNS.addColumn }} />
+              <col />
             </colgroup>
 
             <thead>
               <tr>
-                <HeaderCell width={ACCOUNT_COLUMNS.select} sticky className="px-0">
-                  <span className="flex w-full items-center pl-4">
+                <HeaderCell className="px-0">
+                  <span className="flex w-full items-center justify-center">
                     <Checkbox
                       checked={allSelected}
                       indeterminate={someSelected}
@@ -330,37 +324,28 @@ export function Accounts({ onNavigate }: { onNavigate?: (page: string) => void }
                   </span>
                 </HeaderCell>
 
-                <HeaderCell width={ACCOUNT_COLUMNS.name}>
-                  <span className="group/h flex items-center gap-2">
-                    <FindCompanyJobOpeningsIcon className="text-content-tertiary size-[15px]" />
-                    <span className="text-content-primary flex-1">Account ({accounts.length})</span>
-                    <EllipsisIcon className="text-content-tertiary size-3.5 opacity-0 transition-opacity group-hover/h:opacity-100" />
-                  </span>
-                </HeaderCell>
+                <HeaderCell>Sales Accounts</HeaderCell>
+                <HeaderCell>Domain</HeaderCell>
 
-                <HeaderCell width={ACCOUNT_COLUMNS.domain}>
-                  <span className="flex items-center gap-2">
-                    <NewManualColumnsIcon className="text-content-tertiary size-[15px]" />
-                    <span className="text-content-primary flex-1">Domain</span>
-                    <span className="bg-os-gray-100 text-content-tertiary flex size-[18px] items-center justify-center rounded-full">
-                      <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" className="size-[11px]">
-                        <rect x="3.6" y="7" width="8.8" height="6" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
-                        <path d="M5.8 7V5.4a2.2 2.2 0 0 1 4.4 0V7" stroke="currentColor" strokeWidth="1.4" />
-                      </svg>
-                    </span>
+                {/* The rail's own header row: stone-200 left rule, the lighter
+                    line under it, and no vertical rule at its right edge. */}
+                <HeaderCell className="border-b-line border-l-stone-200 border-r-0 border-l px-0">
+                  <span className="flex w-full items-center px-1">
+                    <button
+                      type="button"
+                      onClick={() => setAddColumnOpen(true)}
+                      className={cn(
+                        'focus-visible:ring-ring/50 flex h-[30px] cursor-pointer items-center',
+                        'gap-1.5 rounded-[8px] px-2 text-[14px] font-medium whitespace-nowrap',
+                        'text-stone-800 outline-none',
+                        'transition-[background-color,transform] duration-150 ease-out-strong active:scale-[0.97]',
+                        'hover:bg-stone-100 focus-visible:ring-[3px]',
+                      )}
+                    >
+                      <PlusCircleIcon className="size-4 shrink-0 text-stone-400" />
+                      Add column
+                    </button>
                   </span>
-                </HeaderCell>
-
-                {/* White, unlike the other header cells. */}
-                <HeaderCell width={ACCOUNT_COLUMNS.addColumn} className="bg-card">
-                  <button
-                    type="button"
-                    onClick={() => setAddColumnOpen(true)}
-                    className="text-content-primary hover:bg-os-gray-75 focus-visible:ring-ring/50 -mx-1.5 flex h-[26px] cursor-pointer items-center gap-1.5 rounded-md px-1.5 outline-none focus-visible:ring-[3px]"
-                  >
-                    <PlusIcon className="text-content-tertiary" />
-                    Add column
-                  </button>
                 </HeaderCell>
               </tr>
             </thead>
@@ -368,15 +353,20 @@ export function Accounts({ onNavigate }: { onNavigate?: (page: string) => void }
             <tbody>
               {rows.map((row, index) => {
                 const isSelected = selected.has(row.id)
+                const isLast = index === rows.length - 1
                 return (
-                  <tr key={row.id} className="group">
-                    <Cell width={ACCOUNT_COLUMNS.select} sticky className="px-0">
-                      <span className="relative flex h-full w-full items-center pl-4">
-                        {/* Number yields to the checkbox on hover or selection,
-                            which is the state row 4 is caught in mid-capture. */}
+                  <tr
+                    key={row.id}
+                    className="group"
+                    /* Capped so a deep row does not wait out a long stagger. */
+                    style={{ '--row-i': Math.min(index, 16) } as CSSProperties}
+                  >
+                    <Cell selected={isSelected} className="px-0">
+                      <span className="relative flex h-full w-full items-center justify-center">
+                        {/* Number yields to the checkbox on hover or selection. */}
                         <span
                           className={cn(
-                            'text-content-tertiary text-xs tabular-nums transition-opacity duration-150',
+                            'text-[13px] font-medium text-stone-400 tabular-nums transition-opacity duration-150',
                             'group-hover:opacity-0',
                             isSelected && 'opacity-0',
                           )}
@@ -385,7 +375,7 @@ export function Accounts({ onNavigate }: { onNavigate?: (page: string) => void }
                         </span>
                         <span
                           className={cn(
-                            'absolute inset-y-0 left-4 flex items-center transition-opacity duration-150',
+                            'absolute inset-0 flex items-center justify-center transition-opacity duration-150',
                             'opacity-0 group-hover:opacity-100 focus-within:opacity-100',
                             isSelected && 'opacity-100',
                           )}
@@ -399,34 +389,60 @@ export function Accounts({ onNavigate }: { onNavigate?: (page: string) => void }
                       </span>
                     </Cell>
 
-                    <Cell width={ACCOUNT_COLUMNS.name}>
-                      <span className="relative flex min-w-0 items-center gap-2.5">
-                        <img
-                          src={faviconUrl(row.domain)}
-                          alt=""
-                          aria-hidden="true"
-                          className="size-[18px] shrink-0 rounded object-contain"
-                        />
-                        <span className="text-content-primary min-w-0 truncate text-[14px] group-hover:underline">
-                          {row.name}
-                        </span>
+                    <Cell selected={isSelected}>
+                      {/* The hover underline is drawn, not text-decoration — a
+                          decoration can't animate, and this one rises 2px into
+                          place, as on People. */}
+                      <span className={cn(
+                        'relative min-w-0 overflow-hidden text-[14px] font-medium text-clip whitespace-nowrap',
+                        'after:absolute after:inset-x-0 after:bottom-[2px] after:h-px after:bg-stone-400',
+                        'after:translate-y-[2px] after:opacity-0',
+                        'after:transition-[opacity,transform] after:duration-100 after:ease-out-strong',
+                        'group-hover:after:translate-y-0 group-hover:after:opacity-100',
+                      )}>
+                        {row.name}
                       </span>
                     </Cell>
 
-                    <Cell width={ACCOUNT_COLUMNS.domain}>
-                      <span className="text-content-secondary relative block truncate text-[14px]">
-                        {row.domain}
+                    <Cell selected={isSelected}>
+                      <span className="flex min-w-0 items-center gap-[9px]">
+                        <BrandMark domain={row.domain} />
+                        <a
+                          href={`https://${row.domain}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="focus-visible:ring-ring/50 inline-flex min-w-0 items-center gap-1 rounded-sm text-[14px] outline-none hover:underline focus-visible:ring-[3px]"
+                        >
+                          <span className="overflow-hidden text-clip whitespace-nowrap">{row.domain}</span>
+                          {/* The open-in-new glyph only surfaces when the row
+                              is under the cursor — at rest the column is just
+                              domains, as in the frame. */}
+                          <ExternalLinkIcon className={cn(
+                            'text-content-quaternary shrink-0 opacity-0 transition-opacity duration-150',
+                            'group-hover:opacity-100 group-focus-within/cell:opacity-100',
+                          )} />
+                        </a>
                       </span>
                     </Cell>
 
-                    <Cell width={ACCOUNT_COLUMNS.addColumn} />
+                    {/* The rail: blank white, ruled only on its stone-200 left
+                        edge — no row rules and no hover tint, so it reads as
+                        margin rather than a column. Its bottom closes with the
+                        last row. */}
+                    <td
+                      style={{ height: ACCOUNT_ROW_HEIGHT }}
+                      className={cn(
+                        'border-l-stone-200 border-l bg-white',
+                        isLast && 'border-b-stone-200 border-b',
+                      )}
+                    />
                   </tr>
                 )
               })}
 
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="text-content-tertiary px-4 py-10 text-center text-[13px]">
+                  <td colSpan={4} className="text-content-tertiary border-b-line border-b px-4 py-10 text-center text-[13px]">
                     No accounts match “{query}”.
                   </td>
                 </tr>

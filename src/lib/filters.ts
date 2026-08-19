@@ -67,9 +67,16 @@ function test(contact: Contact, f: Filter) {
   }
 }
 
-/** Every active filter must pass — the design joins rows with `and`. */
-export function matchesFilters(contact: Contact, filters: Filter[]) {
-  return filters.filter(isActive).every((f) => test(contact, f))
+/** How conditions combine. One join for the whole set, as in the design. */
+export type FilterJoin = 'and' | 'or'
+
+/** `and`: every active filter must pass. `or`: any one of them. */
+export function matchesFilters(contact: Contact, filters: Filter[], join: FilterJoin = 'and') {
+  const active = filters.filter(isActive)
+  if (active.length === 0) return true
+  return join === 'and'
+    ? active.every((f) => test(contact, f))
+    : active.some((f) => test(contact, f))
 }
 
 export function activeCount(filters: Filter[]) {

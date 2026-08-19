@@ -4,7 +4,8 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Favicon } from './Favicon'
 import { Tag } from '@/components/ui/tag'
 import { cn } from '@/lib/cn'
-import { type Filter, type SortState, matchesFilters } from '@/lib/filters'
+import { type Filter, type FilterJoin, type SortState } from '@/lib/filters'
+import { deriveRows } from '@/lib/deriveRows'
 import { useTableConfig } from '@/dev/tableConfig'
 import {
   DataCell, EmptyValue, FooterCell, HeaderCell, TextValue,
@@ -12,6 +13,11 @@ import {
 import {
   ExternalLinkIcon, LinkedInBadge, PlayCircleIcon, PlusCircleIcon, RefreshIcon,
 } from './icons'
+import type { Anchor } from './overlay'
+import type { EnrichPhase } from './enrichment/useEnrichmentFlow'
+import {
+  type EnrichResult, type EnrichmentDef, ENRICH_COL_WIDTH, FIELD_COL_WIDTH,
+} from '@/data/enrichments'
 
 const AI_COL = 'categorize_the_people_from_the_kind_of_work_they_d'
 
@@ -49,24 +55,6 @@ const COLUMNS: { id: string; label: string; width: number; sortKey?: SortKey; fl
 /** The design shows only the path portion, e.g. `/deepalidsfd…`. */
 function linkedinPath(url: string) {
   return url.replace(/^.*linkedin\.com\/in/i, '') || url
-}
-
-/** Design total. The table never renders narrower than this. */
-const TABLE_MIN_WIDTH = COLUMNS.reduce((n, c) => n + c.width, 0)
-
-/** Fields the search box matches against. */
-const SEARCHABLE: (keyof Contact)[] = [
-  'name', 'title', 'email', 'companyName', 'companyDomain', 'linkedinUrl', 'department',
-]
-
-/** Empty values always sort last, regardless of direction. */
-function compare(a: Contact, b: Contact, key: SortKey) {
-  const x = a[key]
-  const y = b[key]
-  if (x === y) return 0
-  if (x == null) return 1
-  if (y == null) return -1
-  return String(x).localeCompare(String(y), undefined, { sensitivity: 'base' })
 }
 
 function LinkValue({ href, children }: { href: string; children: React.ReactNode }) {
@@ -135,6 +123,97 @@ function categorize(id: string) {
   return CATEGORIES[h % CATEGORIES.length]
 }
 
+/* ─────────────────────── enrichment-flow column ───────────────────────── */
+
+/* Opaque on purpose — these cells are (or sit beside) sticky ones, and an
+   alpha background would let scrolled content ghost through. Stated twice so
+   the hover variant beats HeaderCell's own `hover:bg-stone-50` in the merge. */
+const ENRICH_TINT = 'bg-enrich-surface hover:bg-enrich-surface text-indigo-800'
+
+function TrialBadge() {
+  return (
+    <span className="shrink-0 rounded-[4px] bg-indigo-100 px-[5px] py-px text-[10px] font-semibold tracking-[0.05em] text-indigo-800">
+      TRIAL
+    </span>
+  )
+}
+
+/** A value still in flight. Static under reduced motion — absence, not noise. */
+function Skeleton() {
+  return (
+    <span
+      aria-hidden="true"
+      className="motion-safe:animate-shimmer inline-block h-[9px] w-[62%] rounded-[4px]"
+      style={{
+        background:
+          'linear-gradient(90deg, var(--color-stone-100), var(--color-stone-200), var(--color-stone-100))',
+        backgroundSize: '200% 100%',
+      }}
+    />
+  )
+}
+
+/** Which provider a value came from — stone-quiet next to the value. */
+function SourceChip({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="border-line shrink-0 rounded-[5px] border px-[5px] text-[10.5px] leading-4 text-stone-400">
+      {children}
+    </span>
+  )
+}
+
+/**
+ * The enrichment column's cell plus one cell per extracted field. Scope is
+ * membership by id, not index — filtering mid-trial cannot detach a result
+ * from its row.
+ */
+function EnrichCells({
+  cell, row, enrichment,
+}: {
+  cell: { rowId: string; selected: boolean }
+  row: Contact
+  enrichment: EnrichmentTableState
+}) {
+  const { phase, trialIds, revealed, addedFields, resultFor } = enrichment
+  const trialIdx = trialIds.indexOf(row.id)
+  const inScope = phase === 'ran' || trialIdx !== -1
+  const pending = phase === 'trial-running' && trialIdx !== -1 && trialIdx >= revealed
+  const res = inScope && !pending ? resultFor(row) : null
+
+  return (
+    <>
+      <DataCell {...cell} colId="enrich" className="bg-enrich-surface">
+        {!inScope ? (
+          <EmptyValue />
+        ) : pending ? (
+          <Skeleton />
+        ) : res ? (
+          /* The provider chip is trial-time evidence — once the run is
+             committed the column is just data, so the label goes. */
+          <span className="motion-safe:animate-value-in flex w-full min-w-0 items-center gap-[7px]">
+            <TextValue>{res.value}</TextValue>
+            {phase !== 'ran' && <SourceChip>{res.source}</SourceChip>}
+          </span>
+        ) : (
+          <span className="text-content-tertiary text-[12.5px] italic">no match</span>
+        )}
+      </DataCell>
+
+      {addedFields.map((k) => (
+        <DataCell {...cell} key={k} colId={`enrichfield:${k}`} className="bg-enrich-surface">
+          {res?.fields[k] ? (
+            <span className="motion-safe:animate-value-in flex min-w-0">
+              <TextValue>{res.fields[k]}</TextValue>
+            </span>
+          ) : (
+            <EmptyValue />
+          )}
+        </DataCell>
+      ))}
+    </>
+  )
+}
+
 /** Footer statistic: dark value, muted label. */
 function Stat({ value, label }: { value: React.ReactNode; label: string }) {
   return (
@@ -145,18 +224,39 @@ function Stat({ value, label }: { value: React.ReactNode; label: string }) {
   )
 }
 
+/**
+ * What the table needs to render an active enrichment: the column, its trial
+ * progress, and the extracted field columns. Owned by the page's
+ * `useEnrichmentFlow`; null (or absent) means no enrichment column.
+ */
+export type EnrichmentTableState = {
+  phase: EnrichPhase
+  def: EnrichmentDef
+  trialIds: string[]
+  revealed: number
+  addedFields: string[]
+  resultFor: (c: Contact) => EnrichResult | null
+  onHeaderMenu: (anchor: Anchor) => void
+}
+
 export type DataTableProps = {
   query?: string
   filters?: Filter[]
   /** Controlled: the page owns sort, so the toolbar and saved views set it too. */
   sort?: SortState | null
   onSortChange?: (next: SortState | null) => void
-  /** Opens the Add-column dialog. Owned by the page, which mounts the modal. */
-  onAddColumn?: () => void
+  filterJoin?: FilterJoin
+  /** Opens the Add-column popover, anchored under the button. */
+  onAddColumn?: (anchor: Anchor) => void
+  enrichment?: EnrichmentTableState | null
 }
 
+/** The Add-column popover's width — the anchor right-aligns it to the rail. */
+const ADD_POPOVER_WIDTH = 372
+
 export function DataTable({
-  query = '', filters = [], sort = null, onSortChange, onAddColumn,
+  query = '', filters = [], sort = null, onSortChange, filterJoin = 'and',
+  onAddColumn, enrichment = null,
 }: DataTableProps) {
   const { config } = useTableConfig()
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -170,20 +270,27 @@ export function DataTable({
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
 
   const rows = useMemo(() => {
-    const q = query.trim().toLowerCase()
     const base = contacts.map((c) =>
       enriched[c.id] ? { ...c, department: enriched[c.id] } : c)
-    /* Filters and search stack: the panel narrows the set, search narrows it
-       again. */
-    const matched = filters.length ? base.filter((c) => matchesFilters(c, filters)) : base
-    const filtered = q
-      ? matched.filter((c) =>
-          SEARCHABLE.some((k) => String(c[k] ?? '').toLowerCase().includes(q)))
-      : matched
-    if (!sort) return filtered
-    const factor = sort.dir === 'asc' ? 1 : -1
-    return [...filtered].sort((a, b) => compare(a, b, sort.key) * factor)
-  }, [query, sort, enriched, filters])
+    return deriveRows(base, { query, filters, sort, join: filterJoin })
+  }, [query, sort, enriched, filters, filterJoin])
+
+  /* The enrichment column and its extracted fields splice in between the AI
+     column and the Add-column rail. Ids are stable so the <col> keys hold. */
+  const columns = useMemo<typeof COLUMNS>(() => {
+    if (!enrichment) return COLUMNS
+    const extra = [
+      { id: 'enrich', label: enrichment.def.columnLabel, width: ENRICH_COL_WIDTH },
+      ...enrichment.addedFields.map((k) => ({
+        id: `enrichfield:${k}`,
+        label: enrichment.def.fields.find((f) => f.key === k)?.label ?? k,
+        width: FIELD_COL_WIDTH,
+      })),
+    ]
+    return [...COLUMNS.slice(0, -1), ...extra, COLUMNS[COLUMNS.length - 1]]
+  }, [enrichment])
+
+  const minWidth = useMemo(() => columns.reduce((n, c) => n + c.width, 0), [columns])
 
   /**
    * Mock enrichment. `stagger` spaces a Run All out so the column fills in
@@ -209,6 +316,16 @@ export function DataTable({
 
   /** Rows the footer's Run All would act on. */
   const unenriched = rows.filter((r) => !r.department).map((r) => r.id)
+
+  /* Footer stat for the enrichment column — only rows whose value has
+     actually landed count, so the number climbs with the trial. */
+  const enrichMatched = enrichment
+    ? rows.filter((r) => {
+        const idx = enrichment.trialIds.indexOf(r.id)
+        const landed = enrichment.phase === 'ran' || (idx !== -1 && idx < enrichment.revealed)
+        return landed && enrichment.resultFor(r) !== null
+      }).length
+    : 0
 
   const visibleSelected = rows.filter((r) => selected.has(r.id)).length
   const allSelected = rows.length > 0 && visibleSelected === rows.length
@@ -245,14 +362,14 @@ export function DataTable({
     <table
       data-motion={config.motion ? 'on' : 'off'}
       className="w-full table-fixed border-separate border-spacing-0"
-      style={{ minWidth: TABLE_MIN_WIDTH }}
+      style={{ minWidth }}
     >
       <caption className="sr-only">
         Contacts in the My Contacts list. {rows.length} of {contacts.length} rows shown, sortable by column.
       </caption>
 
       <colgroup>
-        {COLUMNS.map((c) => (
+        {columns.map((c) => (
           <col key={c.id} style={c.flex ? undefined : { width: c.width }} />
         ))}
       </colgroup>
@@ -276,13 +393,34 @@ export function DataTable({
             Contact
           </HeaderCell>
 
-          {COLUMNS.slice(1, -1).map((c) => (
-            <HeaderCell key={c.id} colId={c.id}
-              onSort={c.sortKey ? () => toggleSort(c.sortKey!) : undefined}
-              sortDirection={sort && sort.key === c.sortKey ? sort.dir : null}>
-              {c.label}
-            </HeaderCell>
-          ))}
+          {columns.slice(1, -1).map((c) => {
+            if (enrichment && c.id === 'enrich') {
+              return (
+                <HeaderCell key={c.id} colId={c.id}
+                  className={ENRICH_TINT}
+                  onMenu={enrichment.onHeaderMenu}
+                  menuLabel={`${enrichment.def.columnLabel} column options`}
+                  badge={enrichment.phase !== 'ran' ? <TrialBadge /> : undefined}>
+                  {c.label}
+                </HeaderCell>
+              )
+            }
+            if (c.id.startsWith('enrichfield:')) {
+              return (
+                <HeaderCell key={c.id} colId={c.id} className={ENRICH_TINT}>
+                  {c.label}
+                </HeaderCell>
+              )
+            }
+            const sortKey = c.sortKey
+            return (
+              <HeaderCell key={c.id} colId={c.id}
+                onSort={sortKey ? () => toggleSort(sortKey) : undefined}
+                sortDirection={sort && sort.key === sortKey ? sort.dir : null}>
+                {c.label}
+              </HeaderCell>
+            )
+          })}
 
           {/* The design labels this rather than showing a bare glyph, and pins
               it to the right edge so it survives horizontal scrolling. */}
@@ -291,7 +429,12 @@ export function DataTable({
             <span className="flex w-full items-center px-1">
               <button
                 type="button"
-                onClick={onAddColumn}
+                onClick={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect()
+                  /* Right-align the popover to the rail; the overlay hook
+                     clamps it back into the viewport when that overshoots. */
+                  onAddColumn?.({ x: r.right - ADD_POPOVER_WIDTH, y: r.bottom + 6 })
+                }}
                 className={cn(
                   'focus-visible:ring-ring/50 flex h-[30px] w-full cursor-pointer items-center',
                   'gap-1.5 rounded-[8px] px-2 text-[14px] font-medium whitespace-nowrap',
@@ -320,7 +463,7 @@ export function DataTable({
       >
         {rows.length === 0 && (
           <tr>
-            <td colSpan={COLUMNS.length}
+            <td colSpan={columns.length}
               className="text-content-tertiary border-border-tertiary border-b px-4 py-10 text-center text-[13px]">
               {query ? <>No contacts match “{query}”.</> : 'No contacts match these filters.'}
             </td>
@@ -467,6 +610,8 @@ export function DataTable({
                 </div>
               </DataCell>
 
+              {enrichment && <EnrichCells cell={cell} row={row} enrichment={enrichment} />}
+
               {/* Trailing spacer: keeps the vertical separator, drops the row
                   rules so the column reads as blank rather than ruled. */}
               <DataCell {...cell} colId="addColumn" sticky="right" stickyOffset="0px"
@@ -509,6 +654,18 @@ export function DataTable({
                 disabled={unenriched.length === 0}
               />
             </FooterCell>
+            {enrichment && (
+              <>
+                <FooterCell colId="enrich" className="bg-enrich-surface">
+                  <Stat value={enrichMatched} label="Matched" />
+                </FooterCell>
+                {enrichment.addedFields.map((k) => (
+                  <FooterCell key={k} colId={`enrichfield:${k}`} className="bg-enrich-surface">
+                    —
+                  </FooterCell>
+                ))}
+              </>
+            )}
             <FooterCell colId="addColumn" sticky="right" stickyOffset="0px"
               className="border-l border-stone-200 bg-white" />
           </tr>

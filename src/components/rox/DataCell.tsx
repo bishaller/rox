@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import { cn } from '@/lib/cn'
 import { ROW_HEIGHTS, useTableConfig } from '@/dev/tableConfig'
 import { EllipsisIcon, SortArrowIcon } from './icons'
+import type { Anchor } from './overlay'
 
 /**
  * The cell itself is NOT `display: flex` — that would pull it out of table
@@ -101,11 +102,44 @@ export type HeaderCellProps = {
    * because that would nest one control in another.
    */
   leading?: ReactNode
+  /**
+   * Wires the hover-revealed ellipsis into a real menu trigger. Without it
+   * the button stays the decorative affordance it was.
+   */
+  onMenu?: (anchor: Anchor) => void
+  menuLabel?: string
+  /** Rendered right after the label — the TRIAL chip on an enrichment column. */
+  badge?: ReactNode
 }
 
 export function HeaderCell({
   colId, children, className, sticky, stickyOffset, onSort, sortDirection, leading,
+  onMenu, menuLabel, badge,
 }: HeaderCellProps) {
+  const menuButton = (
+    <button
+      type="button"
+      aria-label={menuLabel ?? 'Column options'}
+      aria-haspopup={onMenu ? 'menu' : undefined}
+      onClick={onMenu ? (e) => {
+        const r = e.currentTarget.getBoundingClientRect()
+        onMenu({ x: r.left, y: r.bottom + 6 })
+      } : undefined}
+      className={cn(
+        'text-stone-400 hover:bg-stone-100 hover:text-stone-800',
+        'focus-visible:ring-ring/50 absolute right-0 flex size-5 shrink-0 cursor-pointer',
+        'items-center justify-center rounded outline-none focus-visible:ring-[3px]',
+        /* Inherits the header's own ground (hover tint included), so it masks
+           the label end it overlaps rather than letting text show through. */
+        'bg-inherit transition-opacity duration-150',
+        'pointer-events-none opacity-0',
+        'group-hover/header:pointer-events-auto group-hover/header:opacity-100',
+        'focus-visible:pointer-events-auto focus-visible:opacity-100',
+      )}
+    >
+      <EllipsisIcon className="size-3.5" />
+    </button>
+  )
   const { config } = useTableConfig()
   const isSticky = sticky && config.stickyColumns
 
@@ -142,7 +176,9 @@ export function HeaderCell({
       }}
     >
       {onSort ? (
-        <span className="relative flex w-full items-center gap-2">
+        /* bg-inherit chains the th's ground down to the menu button's mask —
+           `inherit` reads the parent, and the span sits between them. */
+        <span className="relative flex w-full items-center gap-2 bg-inherit">
           {leading}
           <button
             type="button"
@@ -158,27 +194,17 @@ export function HeaderCell({
               )}
             />
           </button>
+          {badge}
           {/* Column options — revealed on header hover, as in the design. */}
-          <button
-            type="button"
-            aria-label={`Column options`}
-            className={cn(
-              'text-stone-400 hover:bg-stone-100 hover:text-stone-800',
-              'focus-visible:ring-ring/50 absolute right-0 flex size-5 shrink-0 cursor-pointer',
-              'items-center justify-center rounded outline-none focus-visible:ring-[3px]',
-              /* Matches the header's own hover ground, so it masks the label
-                 end it overlaps rather than letting text show through. */
-              'bg-stone-50 transition-opacity duration-150',
-              'pointer-events-none opacity-0',
-              'group-hover/header:pointer-events-auto group-hover/header:opacity-100',
-              'focus-visible:pointer-events-auto focus-visible:opacity-100',
-            )}
-          >
-            <EllipsisIcon className="size-3.5" />
-          </button>
+          {menuButton}
         </span>
       ) : (
-        <span className="flex w-full items-center gap-2">{leading}{children}</span>
+        <span className="relative flex w-full items-center gap-2 bg-inherit">
+          {leading}
+          {children}
+          {badge}
+          {onMenu && menuButton}
+        </span>
       )}
     </th>
   )
@@ -204,7 +230,7 @@ export function FooterCell({
         /* stone-200 is the em-dash colour the frame uses for the columns with
            nothing to total. `Stat` states its own two colours, so it is
            unaffected by the base being this light. */
-        'border-line border-t border-r bg-stone-100 text-stone-200',
+        'border-line border-r bg-stone-100 text-stone-200',
         'px-3 whitespace-nowrap',
         FONT_SIZE[config.fontSize],
         className,

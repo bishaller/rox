@@ -127,6 +127,10 @@
   /* Accents --------------------------------------------------------------- */
   --color-accent-select: #0b64e9;
   --color-accent-ai: #6b4aff;
+  /* Ground of an enrichment column — accent-ai at ~4%, flattened onto white.
+     Opaque on purpose: the header is sticky, and an alpha background would
+     let scrolled rows ghost through it. */
+  --color-enrich-surface: rgb(248 247 253);
   --color-accent-blue-primary: #59f;
   --color-accent-green-primary: #34c759;
   --color-accent-red-primary: #d73b3b;
@@ -192,12 +196,14 @@
 
   /* Tooltips grow down from their arrow tip. Entrance only — they are
      dismissed by the cursor leaving, where an exit animation would lag the
-     pointer. */
+     pointer. Scale only: the -translate-x-1/2 centring lives on the CSS
+     `translate` property (Tailwind v4), which composes with — and persists
+     under — this transform. Repeating it here would double the shift. */
   --animate-tooltip-in: tooltip-in 150ms cubic-bezier(0.23, 1, 0.32, 1);
 
   @keyframes tooltip-in {
-    from { opacity: 0; transform: translateX(-50%) scale(0.96); }
-    to   { opacity: 1; transform: translateX(-50%); }
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: none; }
   }
 
   /* A value landing in a cell — an enrichment result, a status chip. The same
@@ -209,14 +215,16 @@
     to   { opacity: 1; transform: none; }
   }
 
-  /* Dialogs are centred, not anchored, so they scale in place. The translate
-     is carried through the keyframes — an animation's transform would
-     otherwise override the -translate-x/y-1/2 centring classes. */
+  /* Dialogs are centred, not anchored, so they scale in place. Scale only —
+     the -translate-x/y-1/2 centring is the CSS `translate` property, which
+     the animation's transform composes with rather than overrides. Restating
+     it in the keyframes doubled the offset and read as a corner-to-centre
+     jump when the entrance ended. */
   --animate-dialog-in: dialog-in 200ms cubic-bezier(0.23, 1, 0.32, 1);
 
   @keyframes dialog-in {
-    from { opacity: 0; transform: translate(-50%, -50%) scale(0.97); }
-    to   { opacity: 1; transform: translate(-50%, -50%); }
+    from { opacity: 0; transform: scale(0.97); }
+    to   { opacity: 1; transform: none; }
   }
 
   /* The checkbox glyph pops in a touch small — checking reads as an action,
@@ -225,6 +233,32 @@
 
   @keyframes check-in {
     from { opacity: 0; transform: scale(0.6); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  /* Skeleton shimmer — a cell whose value is still in flight. Stone, not
+     violet: the skeleton is absence; only the landed value carries weight. */
+  --animate-shimmer: shimmer 1.1s linear infinite;
+
+  @keyframes shimmer {
+    to { background-position: -200% 0; }
+  }
+
+  /* The trial bar drops in from the toolbar band it belongs to. */
+  --animate-bar-in: bar-in 180ms cubic-bezier(0.23, 1, 0.32, 1);
+
+  @keyframes bar-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  /* Toasts rise 4px into place. Y only — the -translate-x-1/2 centring is
+     the CSS `translate` property and persists under this transform; adding
+     the X here would double the shift during the entrance. */
+  --animate-toast-in: toast-in 180ms cubic-bezier(0.23, 1, 0.32, 1);
+
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateY(4px); }
     to   { opacity: 1; transform: none; }
   }
 }

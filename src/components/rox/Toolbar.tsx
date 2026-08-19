@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import { cn } from '@/lib/cn'
-import { activeCount, FILTER_FIELDS, type Filter, newFilter, type SortState } from '@/lib/filters'
+import { activeCount, FILTER_FIELDS, type Filter, type FilterJoin, type SortState } from '@/lib/filters'
 import { ContextMenu } from './ContextMenu'
 import { FilterPanel } from './FilterPanel'
 import { type Anchor } from './overlay'
@@ -29,10 +29,15 @@ export type ToolbarProps = {
   onFiltersChange: (next: Filter[]) => void
   sort: SortState | null
   onSortChange: (next: SortState | null) => void
+  join: FilterJoin
+  onJoinChange: (next: FilterJoin) => void
+  /** Rows the current filters leave visible — the panel's footer count. */
+  resultCount: number
 }
 
 export function Toolbar({
   query, onQueryChange, filters, onFiltersChange, sort, onSortChange,
+  join, onJoinChange, resultCount,
 }: ToolbarProps) {
   const filterButton = useRef<HTMLButtonElement>(null)
   const sortButton = useRef<HTMLButtonElement>(null)
@@ -50,8 +55,6 @@ export function Toolbar({
     const el = filterButton.current
     if (!el) return
     const r = el.getBoundingClientRect()
-    /* Opening with nothing to edit is a dead end, so seed a blank row. */
-    if (filters.length === 0) onFiltersChange([newFilter()])
     setFilterAnchor({ x: r.left, y: r.bottom + 6 })
   }
 
@@ -142,6 +145,9 @@ export function Toolbar({
 
       {filterAnchor && (
         <FilterPanel
+          resultCount={resultCount}
+          join={join}
+          onJoinChange={onJoinChange}
           anchor={filterAnchor}
           filters={filters}
           onChange={onFiltersChange}
